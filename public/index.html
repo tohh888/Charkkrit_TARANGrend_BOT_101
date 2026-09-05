@@ -19,11 +19,13 @@
         .dark .markdown-content strong { color: #60a5fa; }
     </style>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 h-screen flex items-center justify-center p-4 transition-colors duration-300">
+<!-- ปรับ h-screen เป็น h-[100dvh] รองรับคีย์บอร์ดมือถือ -->
+<body class="bg-slate-100 dark:bg-slate-900 h-[100dvh] flex items-center justify-center p-0 sm:p-4 transition-colors duration-300 overflow-hidden">
 
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md h-[620px] flex flex-col overflow-hidden transition-colors duration-300">
+    <!-- ปรับ height ให้ยืดหยุ่นสำหรับมือถือ -->
+    <div class="bg-white dark:bg-slate-800 rounded-none sm:rounded-2xl shadow-xl w-full max-w-md h-full sm:h-[620px] flex flex-col overflow-hidden transition-colors duration-300">
         <!-- Header พร้อมปุ่มสลับธีม -->
-        <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative">
+        <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative shrink-0">
             <!-- ปุ่มเปลี่ยนธีม -->
             <button onclick="toggleTheme()" id="theme-toggle" class="absolute right-3 top-3 p-2 rounded-lg bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm">
                 🌙
@@ -47,12 +49,12 @@
             </div>
         </div>
 
-        <!-- Input Box -->
-        <div class="p-3 border-t dark:border-slate-700 flex gap-2 bg-white dark:bg-slate-800 transition-colors duration-300">
+        <!-- Input Box (ใช้น้ำหนัก text-base ในมือถือเพื่อป้องกัน iOS Auto-Zoom) -->
+        <div class="p-3 border-t dark:border-slate-700 flex gap-2 bg-white dark:bg-slate-800 transition-colors duration-300 shrink-0">
             <input type="text" id="user-input" placeholder="พิมพ์ข้อความสอบถาม..." 
-                   class="flex-1 border dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   class="flex-1 border dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-xl px-4 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                    onkeypress="if(event.key === 'Enter') sendMessage()">
-            <button onclick="sendMessage()" class="bg-blue-600 dark:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 dark:hover:bg-blue-600 transition">
+            <button onclick="sendMessage()" class="bg-blue-600 dark:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 dark:hover:bg-blue-600 transition shrink-0">
                 ส่ง
             </button>
         </div>
@@ -83,12 +85,19 @@
             document.getElementById('theme-toggle').textContent = '🌙';
         }
 
-        async function sendMessage() {
-            const input = document.getElementById('user-input');
-            const message = input.value.trim();
-            if (!message) return;
+        // Auto Scroll สำหรับมือถือเวลากดพิมพ์ข้อความ
+        const inputField = document.getElementById('user-input');
+        const chatBox = document.getElementById('chat-box');
 
-            const chatBox = document.getElementById('chat-box');
+        inputField.addEventListener('focus', () => {
+            setTimeout(() => {
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }, 300);
+        });
+
+        async function sendMessage() {
+            const message = inputField.value.trim();
+            if (!message) return;
 
             // แสดงข้อความผู้ใช้
             const userDiv = document.createElement('div');
@@ -96,7 +105,7 @@
             userDiv.textContent = message;
             chatBox.appendChild(userDiv);
 
-            input.value = '';
+            inputField.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
             // Element แสดงข้อความ AI
