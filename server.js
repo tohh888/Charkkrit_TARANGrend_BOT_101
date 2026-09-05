@@ -17,7 +17,7 @@ app.post('/api/chat', async (req, res) => {
 
         // สลับมาใช้ gemini-2.0-flash
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.0-flash",
+            model: "gemini-3.6-flash",
             systemInstruction: `คุณคือ AI ผู้ช่วยตอบคำถามตารางสอนของอาจารย์
 ข้อมูลทั้งหมดที่คุณต้องใช้อยู่ใน JSON นี้เท่านั้น:
 ${JSON.stringify(scheduleData)}
