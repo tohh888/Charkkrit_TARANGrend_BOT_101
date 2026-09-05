@@ -15,9 +15,8 @@ app.post('/api/chat', async (req, res) => {
         const userMessage = req.body.message;
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
-        // อัปเดตเป็น gemini-3.6-flash
         const responseStream = await ai.models.generateContentStream({
-            model: 'gemini-3.6-flash',
+            model: 'gemini-1.5-flash',
             config: {
                 systemInstruction: `คุณคือ AI ผู้ช่วยตอบคำถามตารางสอนของอาจารย์
 ข้อมูลทั้งหมดที่คุณต้องใช้อยู่ใน JSON นี้เท่านั้น:
