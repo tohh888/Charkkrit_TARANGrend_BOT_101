@@ -15,7 +15,7 @@ app.post('/api/chat', async (req, res) => {
         const userMessage = req.body.message;
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
-        // ใช้ gemini-1.5-flash บน SDK ปกติ ได้โควตาฟรีวันละ 1,500 ครั้ง
+        // ใช้ gemini-1.5-flash รองรับฟรี 1,500 ครั้ง/วัน และ 15 ครั้ง/นาที
         const model = genAI.getGenerativeModel({ 
             model: "gemini-1.5-flash",
             systemInstruction: `คุณคือ AI ผู้ช่วยตอบคำถามตารางสอนของอาจารย์
