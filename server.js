@@ -1,13 +1,13 @@
 require('dotenv').config();
 const express = require('express');
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const scheduleData = require('./schedule.json');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post('/api/chat', async (req, res) => {
     console.log("-> ได้รับข้อความจากผู้ใช้:", req.body.message);
@@ -15,11 +15,10 @@ app.post('/api/chat', async (req, res) => {
         const userMessage = req.body.message;
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
-        // ใช้ gemini-2.5-flash สำหรับ @google/genai SDK (ได้โควตาฟรีสูง ไม่ติด 404 และ 429)
-        const responseStream = await ai.models.generateContentStream({
-            model: 'gemini-2.5-flash',
-            config: {
-                systemInstruction: `คุณคือ AI ผู้ช่วยตอบคำถามตารางสอนของอาจารย์
+        // ใช้ gemini-1.5-flash บน SDK ปกติ ได้โควตาฟรีวันละ 1,500 ครั้ง
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            systemInstruction: `คุณคือ AI ผู้ช่วยตอบคำถามตารางสอนของอาจารย์
 ข้อมูลทั้งหมดที่คุณต้องใช้อยู่ใน JSON นี้เท่านั้น:
 ${JSON.stringify(scheduleData)}
 
@@ -28,12 +27,12 @@ ${JSON.stringify(scheduleData)}
 2. เรื่องเวลาว่าง: เวลาทำการปกติคือ 08:00 - 17:00 น. ให้เปรียบเทียบเวลาสอนใน JSON แล้วคำนวณช่วงเวลาที่ว่างตอบกลับมาให้ถูกต้อง
 3. ข้อมูลอาจารย์: ตอบจาก teacher_info (ชื่อ, วุฒิการศึกษา, ตำแหน่ง, วิทยาลัย ฯลฯ)
 4. ตอบด้วยภาษาไทยที่สุภาพ อ่านง่าย กระชับ และตรงประเด็น`
-            },
-            contents: userMessage
         });
 
-        for await (const chunk of responseStream) {
-            res.write(chunk.text);
+        const result = await model.generateContentStream(userMessage);
+
+        for await (const chunk of result.stream) {
+            res.write(chunk.text());
         }
         res.end();
         console.log("-> ส่งคำตอบสำเร็จ!");
