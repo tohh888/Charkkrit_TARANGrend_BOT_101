@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot ตารางเรียนอาจารย์จักรกฤษณ์</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        .markdown-content p { margin-bottom: 0.5rem; }
+        .markdown-content ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+        .markdown-content ol { list-style-type: decimal; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+        .markdown-content strong { color: #3b82f6; }
+        .dark .markdown-content strong { color: #60a5fa; }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 h-screen flex items-center justify-center p-4 transition-colors duration-300">
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-md h-[620px] flex flex-col overflow-hidden transition-colors duration-300">
+        <!-- Header พร้อมปุ่มสลับธีม -->
+        <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative">
+            <!-- ปุ่มเปลี่ยนธีม -->
+            <button onclick="toggleTheme()" id="theme-toggle" class="absolute right-3 top-3 p-2 rounded-lg bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm">
+                🌙
+            </button>
+
+            <div class="flex items-center justify-center gap-2 font-bold text-lg">
+                <span>🤖</span> สอบถามตารางสอน
+            </div>
+            <div class="text-xs font-medium text-blue-100 mt-1">
+                อาจารย์จักรกฤษณ์ วงศ์อาษา
+            </div>
+            <div class="text-[11px] text-blue-200">
+                แผนกเทคโนโลยีสารสนเทศ | วิทยาลัยเทคนิคสัตหีบ
+            </div>
+        </div>
+
+        <!-- Chat Box -->
+        <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3">
+            <div class="bg-gray-100 dark:bg-slate-700 p-3 rounded-2xl max-w-[85%] self-start text-gray-800 dark:text-gray-100 text-sm">
+                สวัสดีครับ! สอบถามตารางสอนของอาจารย์จักรกฤษณ์ได้เลยครับ เช่น "วันจันทร์มีสอนไหม" หรือ "วันศุกร์ว่างตอนไหน"
+            </div>
+        </div>
+
+        <!-- Input Box -->
+        <div class="p-3 border-t dark:border-slate-700 flex gap-2 bg-white dark:bg-slate-800 transition-colors duration-300">
+            <input type="text" id="user-input" placeholder="พิมพ์ข้อความสอบถาม..." 
+                   class="flex-1 border dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   onkeypress="if(event.key === 'Enter') sendMessage()">
+            <button onclick="sendMessage()" class="bg-blue-600 dark:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 dark:hover:bg-blue-600 transition">
+                ส่ง
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ระบบสลับโหมดมืด / สว่าง
+        function toggleTheme() {
+            const html = document.documentElement;
+            const themeBtn = document.getElementById('theme-toggle');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                themeBtn.textContent = '🌙';
+            } else {
+                html.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                themeBtn.textContent = '☀️';
+            }
+        }
+
+        // โหลดค่าธีมเดิมที่เคยเลือกไว้
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            document.getElementById('theme-toggle').textContent = '☀️';
+        } else {
+            document.documentElement.classList.remove('dark');
+            document.getElementById('theme-toggle').textContent = '🌙';
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('user-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const chatBox = document.getElementById('chat-box');
+
+            // แสดงข้อความผู้ใช้
+            const userDiv = document.createElement('div');
+            userDiv.className = 'bg-blue-600 dark:bg-blue-500 text-white p-3 rounded-2xl max-w-[85%] ml-auto text-sm';
+            userDiv.textContent = message;
+            chatBox.appendChild(userDiv);
+
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // Element แสดงข้อความ AI
+            const aiDiv = document.createElement('div');
+            aiDiv.className = 'bg-gray-100 dark:bg-slate-700 p-3 rounded-2xl max-w-[85%] mr-auto text-sm text-gray-800 dark:text-gray-100 markdown-content';
+            aiDiv.textContent = 'กำลังคิด...';
+            chatBox.appendChild(aiDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let rawText = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    rawText += decoder.decode(value, { stream: true });
+                    aiDiv.innerHTML = marked.parse(rawText);
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+
+            } catch (error) {
+                aiDiv.textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์';
+            }
+        }
+    </script>
+</body>
+</html>
