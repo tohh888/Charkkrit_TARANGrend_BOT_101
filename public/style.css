@@ -1,0 +1,46 @@
+/* กำหนดความสูงหน้าจอแบบ Dynamic รองรับคีย์บอร์ดมือถือ */
+body, html {
+    height: 100%;
+    height: 100dvh; /* ใช้ dvh เพื่อคำนวณพื้นที่จริงเมื่อคีย์บอร์ดโผล่ */
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* ป้องกันหน้าจอหลักเลื่อนหลุด */
+}
+
+/* โครงสร้างตัวกล่องแชทหลัก */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    height: 100dvh;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* พื้นที่แสดงข้อความ (ให้ยืดขยายและ Scroll ได้) */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    -webkit-overflow-scrolling: touch; /* เลื่อนลื่นบน iOS */
+}
+
+/* พื้นที่กล่องพิมพ์ข้อความล่างสุด (ล็อกติดขอบล่างเสมอ) */
+.chat-input-area {
+    position: sticky;
+    bottom: 0;
+    background-color: #1e293b; /* ปรับตามสีธีมของคุณ */
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 100;
+}
+
+/* ช่อง Input */
+.chat-input-area input {
+    flex: 1;
+    font-size: 16px; /* **สำคัญมาก** ถ้าต่ำกว่า 16px iOS จะซูมหน้าจอทำให้มองไม่เห็นข้อความ */
+    padding: 12px;
+    border-radius: 8px;
+}
