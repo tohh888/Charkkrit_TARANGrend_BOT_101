@@ -15,8 +15,9 @@ app.post('/api/chat', async (req, res) => {
         const userMessage = req.body.message;
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
+        // ใช้ gemini-2.5-flash สำหรับ @google/genai SDK (ได้โควตาฟรีสูง ไม่ติด 404 และ 429)
         const responseStream = await ai.models.generateContentStream({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-2.5-flash',
             config: {
                 systemInstruction: `คุณคือ AI ผู้ช่วยตอบคำถามตารางสอนของอาจารย์
 ข้อมูลทั้งหมดที่คุณต้องใช้อยู่ใน JSON นี้เท่านั้น:
