@@ -16,7 +16,7 @@ app.post('/api/chat', async (req, res) => {
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
         const stream = hf.chatCompletionStream({
-            model: "Qwen/Qwen2.5-72B-Instruct",
+            model: "meta-llama/Llama-3.3-70B-Instruct",
             temperature: 0.1,
             messages: [
                 {
