@@ -145,6 +145,9 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/chat', async (req, res) => {
     const userMessage = String(req.body?.message || '').trim();
+    const history = Array.isArray(req.body?.history)
+        ? req.body.history.filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string').slice(-8)
+        : [];
 
     if (!userMessage) return res.status(400).json({ error: 'กรุณาพิมพ์ข้อความ' });
     if (userMessage.length > 1000) return res.status(400).json({ error: 'ข้อความยาวเกินไป กรุณาย่อคำถาม' });
@@ -167,7 +170,7 @@ app.post('/api/chat', async (req, res) => {
         return res.status(503).json({ error: 'ยังไม่ได้ตั้งค่า HF_TOKEN บนเซิร์ฟเวอร์' });
     }
 
-    const cacheKey = normalize(userMessage);
+    const cacheKey = normalize(userMessage) + '|' + history.map(m => m.role + ':' + normalize(m.content)).join('|');
     const cached = cache.get(cacheKey);
     if (cached && Date.now() - cached.time < 10 * 60 * 1000) {
         res.type('text/plain; charset=utf-8').send(cached.answer);
@@ -189,6 +192,7 @@ app.post('/api/chat', async (req, res) => {
                     role: 'system',
                     content: `คุณคือ AI ผู้ช่วยตอบคำถามเกี่ยวกับตารางสอนของอาจารย์จักรกฤษณ์ วงศ์อาษา\nข้อมูลอ้างอิง:\n${JSON.stringify(scheduleData)}\n\nกฎสำคัญ:\n1. ผู้ใช้ชอบถามแบบภาษาพูด คำย่อ คำถามกวนๆ หรือประโยคไม่เป็นทางการ เช่น "พรุ่งนี้มีไร", "ครูว่างปะ", "ลินุกซ์เรียนตอนไหนอะ" ให้ตีความเจตนาจากบริบท\n2. ตอบภาษาไทย กระชับ เป็นธรรมชาติ และตอบสิ่งที่ผู้ใช้ต้องการจริงๆ\n3. เรื่องตารางสอน/ข้อมูลผู้สอน ให้ใช้ข้อมูลใน JSON เท่านั้น ห้ามแต่งวัน เวลา ห้อง วิชา หรือข้อมูลส่วนตัวขึ้นเอง\n4. ถ้าคำถามกำกวมจริงๆ ให้ถามกลับสั้นๆ เพื่อขอวัน/วิชา/ช่วงเวลา แทนการเดา\n5. ห้ามแสดงกระบวนการคิด\n6. ถ้าไม่มีข้อมูลใน JSON ให้บอกตรงๆ ว่าไม่พบข้อมูล\n7. ถ้าเป็นคำถามเล่นๆ ที่ยังเกี่ยวกับตาราง ให้ตอบแบบเป็นกันเองได้ แต่ห้ามเปลี่ยนข้อเท็จจริง\n`
                 },
+                ...history,
                 { role: 'user', content: userMessage }
             ]
         });
