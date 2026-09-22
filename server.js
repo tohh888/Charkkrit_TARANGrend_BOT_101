@@ -36,59 +36,99 @@ function isRateLimited(key) {
 }
 
 function normalize(text) {
-    return String(text || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    return String(text || '').trim().toLowerCase()
+        .replace(/[!?.,;:()[\]{}\"“”‘’]/g, ' ')
+        .replace(/\s+/g, ' ');
 }
 
-function formatClass(c) {
-    return `- ${c.time || '-'} | ${c.subject || c.code || '-'} | ห้อง ${c.room || '-'} | กลุ่ม ${c.group || '-'}`;
+const DAY_LABELS = { monday: 'จันทร์', tuesday: 'อังคาร', wednesday: 'พุธ', thursday: 'พฤหัสบดี', friday: 'ศุกร์' };
+const DAY_KEYS = Object.keys(DAY_LABELS);
+const dayAliases = { monday: ['จันทร์', 'วันจันทร์', 'จัน', 'monday'], tuesday: ['อังคาร', 'วันอังคาร', 'tuesday'], wednesday: ['พุธ', 'วันพุธ', 'wednesday'], thursday: ['พฤหัส', 'พฤหัสบดี', 'วันพฤหัส', 'วันพฤหัสบดี', 'thursday'], friday: ['ศุกร์', 'วันศุกร์', 'friday'] };
+const englishDayToKey = { Monday: 'monday', Tuesday: 'tuesday', Wednesday: 'wednesday', Thursday: 'thursday', Friday: 'friday' };
+
+function getThailandDateParts() {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Bangkok', weekday: 'long', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+    const out = {};
+    for (const p of parts) out[p.type] = p.value;
+    return { day: englishDayToKey[out.weekday] || null, minutes: Number(out.hour || 0) * 60 + Number(out.minute || 0) };
 }
 
-const dayAliases = {
-    monday: ['จันทร์', 'วันจันทร์', 'monday'],
-    tuesday: ['อังคาร', 'วันอังคาร', 'tuesday'],
-    wednesday: ['พุธ', 'วันพุธ', 'wednesday'],
-    thursday: ['พฤหัส', 'พฤหัสบดี', 'วันพฤหัส', 'วันพฤหัสบดี', 'thursday'],
-    friday: ['ศุกร์', 'วันศุกร์', 'friday']
-};
+function shiftWeekday(day, offset) { const index = DAY_KEYS.indexOf(day); if (index < 0) return null; return DAY_KEYS[(index + offset + DAY_KEYS.length) % DAY_KEYS.length]; }
 
 function findDay(message) {
-    for (const [day, aliases] of Object.entries(dayAliases)) {
-        if (aliases.some(a => message.includes(a))) return day;
-    }
+    const q = normalize(message); const today = getThailandDateParts().day;
+    if (q.includes('วันนี้')) return today;
+    if (q.includes('พรุ่งนี้') || q.includes('พรุ่ง')) return shiftWeekday(today, 1);
+    if (q.includes('มะรืน')) return shiftWeekday(today, 2);
+    for (const [day, aliases] of Object.entries(dayAliases)) if (aliases.some(a => q.includes(a))) return day;
     return null;
+}
+
+function getDayClasses(day) { return [...(scheduleData.schedule?.[day] || [])].sort((a, b) => String(a.time || '').localeCompare(String(b.time || ''), undefined, { numeric: true })); }
+function parseTimeRange(time) { const m = String(time || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/); return m ? { start: Number(m[1]) * 60 + Number(m[2]), end: Number(m[3]) * 60 + Number(m[4]) } : null; }
+function minutesToTime(minutes) { return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0'); }
+function formatClass(c) { return '- ' + (c.time || '-') + ' | ' + (c.subject || c.code || '-') + ' | ห้อง ' + (c.room || '-') + ' | กลุ่ม ' + (c.group || '-'); }
+function formatClasses(classes) { return classes.length ? classes.map(formatClass).join('\n') : '- ไม่มีการเรียนการสอน'; }
+
+function findSubject(q) {
+    const subjects = scheduleData.subjects || {};
+    for (const [code, subject] of Object.entries(subjects)) if (q.includes(String(code).toLowerCase()) || q.includes(normalize(subject))) return { code, subject };
+    for (const classes of Object.values(scheduleData.schedule || {})) for (const c of classes) if (c.code && q.includes(String(c.code).toLowerCase())) return { code: c.code, subject: c.subject };
+    return null;
+}
+
+function getFreeSlots(classes) {
+    const ranges = classes.map(c => parseTimeRange(c.time)).filter(Boolean).sort((a, b) => a.start - b.start);
+    if (!ranges.length) return ['08:00-18:00'];
+    const slots = []; let cursor = 8 * 60;
+    for (const r of ranges) { if (r.start > cursor) slots.push(minutesToTime(cursor) + '-' + minutesToTime(r.start)); cursor = Math.max(cursor, r.end); }
+    if (cursor < 18 * 60) slots.push(minutesToTime(cursor) + '-18:00');
+    return slots;
 }
 
 function localScheduleAnswer(message) {
-    const q = normalize(message);
-    const teacher = scheduleData.teacher_info;
-    const schedule = scheduleData.schedule || {};
+    const q = normalize(message); const teacher = scheduleData.teacher_info || {}; const schedule = scheduleData.schedule || {};
+    const scheduleWords = /(ตาราง|เรียน|สอน|คาบ|วิชา|ห้อง|กลุ่ม|ว่าง|เลิก|เริ่ม|กี่โมง|เมื่อไหร่|กี่คาบ|วันนี้|พรุ่งนี้|มะรืน|เช้า|บ่าย|เย็น)/;
 
-    if (/^(ขอ)?(ข้อมูล)?อาจารย์|ประวัติอาจารย์|อาจารย์จักรกฤษณ์/.test(q)) {
-        return [
-            `- ชื่อ: ${teacher.name}`,
-            `- วุฒิการศึกษา: ${teacher.degree}`,
-            `- ตำแหน่ง: ${teacher.position}`,
-            `- สังกัด: ${teacher.college}`
-        ].join('\n');
+    if (/(ข้อมูล|ประวัติ|โปรไฟล์|เกี่ยวกับ).{0,12}(อาจารย์|ครู|ผู้สอน)/.test(q) || /(อาจารย์|ครู|ผู้สอน).{0,12}(ชื่อ|จบ|วุฒิ|ตำแหน่ง|สังกัด|อยู่ที่ไหน)/.test(q) || /^(ขอ)?(ข้อมูล)?อาจารย์/.test(q)) {
+        return ['- ชื่อ: ' + (teacher.name || '-'), '- วุฒิการศึกษา: ' + (teacher.degree || '-'), '- ตำแหน่ง: ' + (teacher.position || '-'), '- สังกัด: ' + (teacher.college || '-')].join('\n');
+    }
+    if (/(ตารางเรียนทั้งหมด|ตารางสอนทั้งหมด|ตารางทั้งหมด|ดูตาราง|ตารางอาจารย์)/.test(q)) return DAY_KEYS.map(day => '- วัน' + DAY_LABELS[day] + ': ' + formatClasses(getDayClasses(day)).replace(/^- /, '')).join('\n');
+
+    const day = findDay(q); const subject = findSubject(q);
+    if (subject) {
+        const occurrences = Object.entries(schedule).flatMap(([d, classes]) => classes.filter(c => c.code === subject.code || normalize(c.subject) === normalize(subject.subject)).map(c => ({ day: d, ...c })));
+        if (day) { const dayOccurrences = occurrences.filter(c => c.day === day); if (!dayOccurrences.length) return '- วัน' + DAY_LABELS[day] + 'ไม่มีวิชา' + subject.subject; return ['- ' + subject.subject + ' (' + subject.code + ') วัน' + DAY_LABELS[day], ...dayOccurrences.map(formatClass)].join('\n'); }
+        if (/(วันไหน|เมื่อไหร่|ตอนไหน|กี่โมง|เวลา|สอนวัน|เรียนวัน)/.test(q)) return occurrences.map(c => '- วัน' + DAY_LABELS[c.day] + ' ' + formatClass(c)).join('\n') || '- ไม่พบวิชานี้ในตาราง';
+        if (/(ห้อง|เรียนที่ไหน|อยู่ไหน)/.test(q)) return occurrences.map(c => '- วัน' + DAY_LABELS[c.day] + ' ' + (c.time || '-') + ' ห้อง ' + (c.room || '-')).join('\n') || '- ไม่พบวิชานี้ในตาราง';
+        return occurrences.map(c => '- วัน' + DAY_LABELS[c.day] + ' ' + formatClass(c)).join('\n') || '- ไม่พบวิชานี้ในตาราง';
     }
 
-    const day = findDay(q);
-    if (day && /(ตาราง|เรียน|สอน|คาบ|วิชา|ห้อง|วันนี้)/.test(q)) {
-        const classes = schedule[day] || [];
-        if (!classes.length) return '- ไม่มีการเรียนการสอนในวันนี้';
-        return [`- ตารางเรียนวัน${day === 'monday' ? 'จันทร์' : day === 'tuesday' ? 'อังคาร' : day === 'wednesday' ? 'พุธ' : day === 'thursday' ? 'พฤหัสบดี' : 'ศุกร์'}`, ...classes.map(formatClass)].join('\n');
+    if (day && scheduleWords.test(q)) {
+        let classes = getDayClasses(day);
+        if (/(เช้า|ตอนเช้า)/.test(q)) classes = classes.filter(c => (parseTimeRange(c.time)?.start ?? 9999) < 12 * 60);
+        if (/(บ่าย|ตอนบ่าย)/.test(q)) classes = classes.filter(c => (parseTimeRange(c.time)?.start ?? -1) >= 12 * 60);
+        if (/(เย็น|ตอนเย็น)/.test(q)) classes = classes.filter(c => (parseTimeRange(c.time)?.start ?? -1) >= 17 * 60);
+        if (!classes.length) return '- วัน' + DAY_LABELS[day] + 'ไม่มีคาบตามช่วงเวลาที่ถามครับ';
+        if (/(คาบแรก|แรกสุด|เริ่มกี่โมง|เริ่มเรียน)/.test(q)) return '- คาบแรกวัน' + DAY_LABELS[day] + 'เริ่ม ' + classes[0].time;
+        if (/(คาบสุดท้าย|สุดท้าย|เลิกกี่โมง|เลิกเรียน)/.test(q)) return '- คาบสุดท้ายวัน' + DAY_LABELS[day] + 'คือ ' + classes[classes.length - 1].subject + ' (' + classes[classes.length - 1].time + ')';
+        if (/(กี่คาบ|กี่วิชา|กี่ครั้ง)/.test(q)) return '- วัน' + DAY_LABELS[day] + 'มี ' + classes.length + ' คาบ';
+        if (/(ว่าง|มีช่วงว่าง|พัก|ไม่มีเรียน)/.test(q)) return ['- วัน' + DAY_LABELS[day] + 'ช่วงที่ว่าง', ...getFreeSlots(getDayClasses(day)).map(s => '- ' + s)].join('\n');
+        return ['- ตารางวัน' + DAY_LABELS[day], ...classes.map(formatClass)].join('\n');
     }
 
-    if (/(ตารางเรียนทั้งหมด|ตารางสอนทั้งหมด|ดูตารางทั้งหมด)/.test(q)) {
-        const labels = { monday: 'จันทร์', tuesday: 'อังคาร', wednesday: 'พุธ', thursday: 'พฤหัสบดี', friday: 'ศุกร์' };
-        return Object.entries(schedule).map(([d, classes]) =>
-            `- วัน${labels[d]}: ${classes.length ? classes.map(c => `${c.time} ${c.subject}`).join('; ') : 'ไม่มีการเรียน'}`
-        ).join('\n');
+    if (/(ตอนนี้|ขณะนี้|คาบต่อไป|ต่อไปเรียนอะไร|กำลังสอน)/.test(q)) {
+        const now = getThailandDateParts(); const classes = getDayClasses(now.day);
+        const current = classes.find(c => { const r = parseTimeRange(c.time); return r && now.minutes >= r.start && now.minutes < r.end; });
+        if (current) return '- ตอนนี้กำลังสอน: ' + current.subject + ' เวลา ' + current.time + ' ห้อง ' + (current.room || '-');
+        const next = classes.find(c => { const r = parseTimeRange(c.time); return r && r.start > now.minutes; });
+        if (next) return '- คาบถัดไป: ' + next.subject + ' เวลา ' + next.time + ' ห้อง ' + (next.room || '-');
+        return '- ตอนนี้ไม่มีคาบสอนแล้วสำหรับวัน' + DAY_LABELS[now.day];
     }
-
+    if (/(วันนี้|ตอนนี้).{0,20}(ว่าง|มีเวลา|ไม่มีเรียน)/.test(q) || /(^|\s)ว่างไหม($|\s)/.test(q)) { const today = getThailandDateParts().day; return ['- ช่วงว่างวัน' + DAY_LABELS[today], ...getFreeSlots(getDayClasses(today)).map(s => '- ' + s)].join('\n'); }
+    if (/(หลัง|หลังจาก).{0,15}(คาบสุดท้าย|เลิกเรียน|เลิกสอน)/.test(q)) { const targetDay = day || getThailandDateParts().day; const classes = getDayClasses(targetDay); if (!classes.length) return '- วัน' + DAY_LABELS[targetDay] + 'ไม่มีคาบสอน'; const last = classes[classes.length - 1]; return '- คาบสุดท้ายวัน' + DAY_LABELS[targetDay] + 'จบ ' + ((last.time || '').split('-')[1] || '-') + '\n- หลังจากนั้นไม่มีคาบในตารางครับ'; }
     return null;
 }
-
 // schedule.json อยู่ที่ root จึงต้องมี route ให้หน้าเว็บเรียกได้
 app.get('/schedule.json', (req, res) => {
     res.json(scheduleData);
@@ -147,18 +187,7 @@ app.post('/api/chat', async (req, res) => {
             messages: [
                 {
                     role: 'system',
-                    content: `คุณคือ AI ผู้ช่วยตอบคำถามเกี่ยวกับตารางสอนของอาจารย์จักรกฤษณ์ วงศ์อาษา
-ข้อมูลอ้างอิง:
-${JSON.stringify(scheduleData)}
-
-กฎ:
-1. ตอบภาษาไทย กระชับ และตรงคำถาม
-2. ใช้ข้อมูลจาก JSON เท่านั้นเมื่อถามเรื่องอาจารย์หรือตารางสอน
-3. ห้ามสร้างข้อมูลที่ไม่มีใน JSON
-4. ไม่ต้องแสดงกระบวนการคิด
-5. หากไม่มีข้อมูล ให้บอกว่าไม่พบข้อมูลในตาราง
-6. ตอบเป็น bullet points เมื่อเป็นรายการ
-`
+                    content: `คุณคือ AI ผู้ช่วยตอบคำถามเกี่ยวกับตารางสอนของอาจารย์จักรกฤษณ์ วงศ์อาษา\nข้อมูลอ้างอิง:\n${JSON.stringify(scheduleData)}\n\nกฎสำคัญ:\n1. ผู้ใช้ชอบถามแบบภาษาพูด คำย่อ คำถามกวนๆ หรือประโยคไม่เป็นทางการ เช่น "พรุ่งนี้มีไร", "ครูว่างปะ", "ลินุกซ์เรียนตอนไหนอะ" ให้ตีความเจตนาจากบริบท\n2. ตอบภาษาไทย กระชับ เป็นธรรมชาติ และตอบสิ่งที่ผู้ใช้ต้องการจริงๆ\n3. เรื่องตารางสอน/ข้อมูลผู้สอน ให้ใช้ข้อมูลใน JSON เท่านั้น ห้ามแต่งวัน เวลา ห้อง วิชา หรือข้อมูลส่วนตัวขึ้นเอง\n4. ถ้าคำถามกำกวมจริงๆ ให้ถามกลับสั้นๆ เพื่อขอวัน/วิชา/ช่วงเวลา แทนการเดา\n5. ห้ามแสดงกระบวนการคิด\n6. ถ้าไม่มีข้อมูลใน JSON ให้บอกตรงๆ ว่าไม่พบข้อมูล\n7. ถ้าเป็นคำถามเล่นๆ ที่ยังเกี่ยวกับตาราง ให้ตอบแบบเป็นกันเองได้ แต่ห้ามเปลี่ยนข้อเท็จจริง\n`
                 },
                 { role: 'user', content: userMessage }
             ]
