@@ -1,332 +1,383 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Chatbot ตารางเรียนอาจารย์จักรกฤษณ์</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = { darkMode: 'class' }
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <style>
-        .markdown-content p { margin-bottom: 0.5rem; }
-        .markdown-content ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
-        .markdown-content ol { list-style-type: decimal; padding-left: 1.25rem; margin-bottom: 0.5rem; }
-        .markdown-content strong { color: #3b82f6; }
-        .dark .markdown-content strong { color: #60a5fa; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0b1220">
+<title>ผู้ช่วยตารางสอน | อาจารย์จักรกฤษณ์</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Noto Sans Thai', 'Tahoma', 'sans-serif'] }
+    }
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; min-height:100%; font-family:'Noto Sans Thai',Tahoma,sans-serif; }
+  body { background:#eef3f9; color:#172033; }
+  .dark body { background:#070d18; color:#e5edf8; }
+  .app-shell { min-height:100dvh; }
+  .glass { background:rgba(255,255,255,.78); backdrop-filter:blur(18px); border:1px solid rgba(255,255,255,.75); }
+  .dark .glass { background:rgba(15,24,40,.82); border-color:rgba(148,163,184,.12); }
+  .soft-shadow { box-shadow:0 20px 60px rgba(15,23,42,.10); }
+  .dark .soft-shadow { box-shadow:0 20px 60px rgba(0,0,0,.30); }
+  .chat-scroll::-webkit-scrollbar, .modal-scroll::-webkit-scrollbar { width:7px; }
+  .chat-scroll::-webkit-scrollbar-thumb, .modal-scroll::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:99px; }
+  .dark .chat-scroll::-webkit-scrollbar-thumb, .dark .modal-scroll::-webkit-scrollbar-thumb { background:#334155; }
+  .message { animation: rise .2s ease-out; }
+  @keyframes rise { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:none; } }
+  .dot { width:7px; height:7px; border-radius:50%; background:#60a5fa; animation:pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity:.3; transform:scale(.7); } }
+  .nav-active { background:linear-gradient(135deg,#2563eb,#4f46e5); color:#fff; box-shadow:0 10px 24px rgba(37,99,235,.22); }
+  .hero-grid { background:
+    radial-gradient(circle at 15% 10%, rgba(96,165,250,.26), transparent 34%),
+    radial-gradient(circle at 85% 90%, rgba(99,102,241,.22), transparent 36%),
+    linear-gradient(135deg,#0b1730,#152a54 55%,#243b72); }
+  .dark .hero-grid { background:
+    radial-gradient(circle at 15% 10%, rgba(59,130,246,.22), transparent 34%),
+    radial-gradient(circle at 85% 90%, rgba(99,102,241,.16), transparent 36%),
+    linear-gradient(135deg,#0a1325,#111f39 55%,#17284b); }
+  .safe-bottom { padding-bottom:max(12px, env(safe-area-inset-bottom)); }
+</style>
 </head>
-<body class="bg-slate-100 dark:bg-slate-900 h-[100dvh] flex items-center justify-center p-0 sm:p-4 transition-colors duration-300 overflow-hidden">
 
-    <div class="bg-white dark:bg-slate-800 rounded-none sm:rounded-2xl shadow-xl w-full max-w-md h-full sm:h-[620px] flex flex-col overflow-hidden transition-colors duration-300 relative">
-        
-        <!-- Header พร้อมปุ่มแฮมเบอร์เกอร์เปิดตารางเรียน -->
-        <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative shrink-0 flex items-center justify-between">
-            <!-- ปุ่มข้อมูล -->
-            <div class="flex items-center gap-2">
-                <button onclick="openScheduleModal()" class="px-3 py-2 rounded-xl bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm font-semibold" title="ตารางสอน" aria-label="เปิดตารางสอน">
-                    📅 ตาราง
-                </button>
-                <button onclick="openTeacherModal()" class="px-3 py-2 rounded-xl bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm font-semibold" title="ข้อมูลผู้สอน" aria-label="เปิดข้อมูลผู้สอน">
-                    👨‍🏫 ผู้สอน
-                </button>
+<body>
+<div class="app-shell p-0 md:p-5 lg:p-7">
+  <div class="mx-auto max-w-7xl min-h-[100dvh] md:min-h-[calc(100dvh-56px)] flex overflow-hidden md:rounded-[30px] soft-shadow glass">
+
+    <!-- Sidebar -->
+    <aside class="hidden md:flex w-[275px] shrink-0 flex-col border-r border-slate-200/80 dark:border-slate-700/60 p-5">
+      <div class="flex items-center gap-3 mb-7">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white grid place-items-center text-xl shadow-lg shadow-blue-500/20">📚</div>
+        <div>
+          <div class="font-black tracking-tight">TARANGrend</div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400">ผู้ช่วยตารางสอน</div>
+        </div>
+      </div>
+
+      <div class="rounded-3xl p-4 hero-grid text-white mb-5 overflow-hidden relative">
+        <div class="absolute -right-7 -top-7 w-24 h-24 rounded-full bg-white/10"></div>
+        <div class="text-[11px] text-blue-100 mb-1">ผู้สอน</div>
+        <div class="font-bold leading-relaxed">นายจักรกฤษณ์ วงศ์อาษา</div>
+        <div id="side-term" class="text-xs text-blue-100 mt-1">ภาคเรียนกำลังโหลด...</div>
+      </div>
+
+      <div class="space-y-2">
+        <button id="nav-chat" onclick="showView('chat')" class="nav-active w-full rounded-2xl px-4 py-3 text-left flex items-center gap-3 font-semibold text-sm transition">
+          <span class="text-lg">💬</span><span>ผู้ช่วยอัจฉริยะ</span>
+        </button>
+        <button id="nav-schedule" onclick="openPanel('schedule')" class="w-full rounded-2xl px-4 py-3 text-left flex items-center gap-3 font-semibold text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <span class="text-lg">🗓️</span><span>ตารางสอน</span>
+        </button>
+        <button id="nav-teacher" onclick="openPanel('teacher')" class="w-full rounded-2xl px-4 py-3 text-left flex items-center gap-3 font-semibold text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition">
+          <span class="text-lg">👨‍🏫</span><span>ข้อมูลผู้สอน</span>
+        </button>
+      </div>
+
+      <div class="mt-auto space-y-2">
+        <button onclick="toggleTheme()" class="w-full rounded-2xl px-4 py-3 flex items-center justify-between text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <span class="flex items-center gap-3"><span>◐</span> รูปแบบหน้าจอ</span>
+          <span id="theme-label">อัตโนมัติ</span>
+        </button>
+        <div class="px-2 pt-3 text-[10px] text-slate-400">ระบบผู้ช่วยตารางสอน • 2569</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 min-w-0 flex flex-col bg-white/50 dark:bg-slate-950/30">
+      <!-- Topbar -->
+      <header class="h-[70px] shrink-0 px-4 md:px-7 flex items-center justify-between border-b border-slate-200/70 dark:border-slate-700/50">
+        <div class="md:hidden flex items-center gap-2">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white grid place-items-center">📚</div>
+          <div class="font-black text-sm">TARANGrend</div>
+        </div>
+        <div class="hidden md:block">
+          <div class="text-sm font-bold">ผู้ช่วยอัจฉริยะ</div>
+          <div class="text-[11px] text-slate-500 dark:text-slate-400">ถามเรื่องตารางสอนได้เหมือนคุยกับผู้ช่วยส่วนตัว</div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="openPanel('schedule')" class="md:hidden rounded-xl px-3 py-2 text-xs font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">🗓️ ตาราง</button>
+          <button onclick="openPanel('teacher')" class="md:hidden rounded-xl px-3 py-2 text-xs font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">👨‍🏫 ผู้สอน</button>
+          <button onclick="toggleTheme()" id="theme-top" class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 grid place-items-center hover:scale-105 transition" title="เปลี่ยนธีม">☾</button>
+        </div>
+      </header>
+
+      <!-- Chat view -->
+      <section id="chat-view" class="flex-1 min-h-0 flex flex-col">
+        <div class="px-4 md:px-8 pt-5 md:pt-7">
+          <div class="hero-grid rounded-[26px] p-5 md:p-7 text-white relative overflow-hidden">
+            <div class="absolute -right-12 -top-16 w-48 h-48 rounded-full border-[28px] border-white/5"></div>
+            <div class="absolute right-16 bottom-[-45px] w-32 h-32 rounded-full bg-blue-400/10"></div>
+            <div class="relative">
+              <div class="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/10 px-3 py-1 text-[11px] mb-3">
+                <span class="dot"></span> พร้อมให้บริการ
+              </div>
+              <h1 class="text-xl md:text-2xl font-black tracking-tight">สวัสดีครับ 👋<br class="md:hidden"> มีอะไรให้ช่วยเรื่องตารางสอนไหม?</h1>
+              <p class="text-xs md:text-sm text-blue-100 mt-2 max-w-2xl">ถามวันเรียน วิชา ห้องเรียน เวลาว่าง หรือข้อมูลผู้สอนได้เลย ระบบจะค้นจากข้อมูลตารางโดยตรง</p>
             </div>
+          </div>
+        </div>
 
-            <div>
-                <div class="flex items-center justify-center gap-2 font-bold text-base sm:text-lg">
-                    <span>🤖</span> สอบถามตารางสอน
-                </div>
-                <div class="text-xs font-medium text-blue-100 mt-0.5">
-                    อาจารย์จักรกฤษณ์ วงศ์อาษา
-                </div>
-            </div>
-
-            <!-- ปุ่มเปลี่ยนธีม -->
-            <button onclick="toggleTheme()" id="theme-toggle" class="p-2 rounded-lg bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm">
-                🌙
+        <div id="quick-actions" class="px-4 md:px-8 pt-4">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+            <button onclick="quickAsk('วันนี้มีสอนอะไรบ้าง')" class="text-left rounded-2xl p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 transition">
+              <div class="text-lg mb-1">📌</div><div class="font-bold text-xs">วันนี้สอนอะไร</div><div class="text-[10px] text-slate-500 mt-1">ดูคาบเรียนวันนี้</div>
             </button>
-        </div>
-
-        <!-- Chat Box -->
-        <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3">
-            <div class="bg-gray-100 dark:bg-slate-700 p-3 rounded-2xl max-w-[85%] self-start text-gray-800 dark:text-gray-100 text-sm">
-                สวัสดีครับ! ถามได้เต็มที่เลยครับ 😎<br>
-                จะถามตรงๆ หรือถามกวนๆ ก็ได้ เช่น <b>“พรุ่งนี้มีไรบ้าง”</b>, <b>“ครูว่างปะ”</b>, <b>“ลินุกซ์เรียนตอนไหนอะ”</b><br>
-                หรือกด 📅 <b>ตาราง</b> / 👨‍🏫 <b>ผู้สอน</b> ได้เลยครับ
-            </div>
-        </div>
-
-        <!-- Input Box -->
-        <div class="p-3 border-t dark:border-slate-700 flex gap-2 bg-white dark:bg-slate-800 transition-colors duration-300 shrink-0">
-            <input type="text" id="user-input" placeholder="พิมพ์ข้อความสอบถาม..." 
-                   class="flex-1 border dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-xl px-4 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                   onkeypress="if(event.key === 'Enter') sendMessage()">
-            <button onclick="sendMessage()" class="bg-blue-600 dark:bg-blue-500 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 dark:hover:bg-blue-600 transition shrink-0">
-                ส่ง
+            <button onclick="quickAsk('พรุ่งนี้มีอะไรบ้าง')" class="text-left rounded-2xl p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 transition">
+              <div class="text-lg mb-1">🌤️</div><div class="font-bold text-xs">พรุ่งนี้มีอะไร</div><div class="text-[10px] text-slate-500 mt-1">เช็กตารางล่วงหน้า</div>
             </button>
+            <button onclick="quickAsk('วันนี้มีช่วงว่างตอนไหน')" class="text-left rounded-2xl p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 transition">
+              <div class="text-lg mb-1">☕</div><div class="font-bold text-xs">ช่วงเวลาว่าง</div><div class="text-[10px] text-slate-500 mt-1">ค้นหาช่วงพัก</div>
+            </button>
+            <button onclick="openPanel('schedule')" class="text-left rounded-2xl p-3 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-700 transition">
+              <div class="text-lg mb-1">🗓️</div><div class="font-bold text-xs">ดูตารางทั้งหมด</div><div class="text-[10px] text-slate-500 mt-1">จันทร์ถึงศุกร์</div>
+            </button>
+          </div>
         </div>
 
-        <!-- Modal / UI แสดงตารางเรียนแยก (เปิดจากการกดปุ่มแฮมเบอร์เกอร์) -->
-        <div id="schedule-modal" class="hidden absolute inset-0 bg-white dark:bg-slate-800 z-50 flex flex-col transition-all duration-300">
-            <!-- Header Modal -->
-            <div class="bg-slate-100 dark:bg-slate-700 p-3 border-b dark:border-slate-600 flex justify-between items-center shrink-0">
-                <h3 class="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2">
-                    📅 ตารางสอนทั้งหมด
-                </h3>
-                <button onclick="closeScheduleModal()" class="text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 text-xl font-bold px-2">
-                    ✕
-                </button>
+        <div id="chat-box" class="chat-scroll flex-1 min-h-0 overflow-y-auto px-4 md:px-8 py-5 space-y-4">
+          <div class="message flex gap-3 max-w-3xl">
+            <div class="w-9 h-9 shrink-0 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white grid place-items-center text-sm">AI</div>
+            <div class="rounded-2xl rounded-tl-md bg-slate-100 dark:bg-slate-800 px-4 py-3 text-sm leading-7 text-slate-700 dark:text-slate-200">
+              สวัสดีครับ 😊 ถามผมได้เลย เช่น <b>“พรุ่งนี้มีไรบ้าง”</b> หรือ <b>“ลินุกซ์เรียนตอนไหนอะ”</b> ผมช่วยค้นตารางให้ครับ
             </div>
-            
-            <!-- Content แสดงข้อมูลตารางเรียนจาก JSON -->
-            <div id="schedule-content" class="flex-1 p-4 overflow-y-auto space-y-4 text-sm text-slate-800 dark:text-slate-200">
-                <div class="text-center text-gray-400 py-8">กำลังโหลดข้อมูลตารางสอน...</div>
-            </div>
+          </div>
         </div>
 
-        
-        <!-- หน้าต่างข้อมูลผู้สอน -->
-        <div id="teacher-modal" class="hidden absolute inset-0 bg-white dark:bg-slate-800 z-[51] flex flex-col transition-all duration-300">
-            <div class="bg-slate-100 dark:bg-slate-700 p-3 border-b dark:border-slate-600 flex justify-between items-center shrink-0">
-                <h3 class="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2">👨‍🏫 ข้อมูลผู้สอน</h3>
-                <button onclick="closeTeacherModal()" class="text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 text-xl font-bold px-2" aria-label="ปิดหน้าต่าง">✕</button>
-            </div>
-            <div id="teacher-content" class="flex-1 p-4 overflow-y-auto text-sm text-slate-800 dark:text-slate-200">
-                <div class="text-center text-gray-400 py-8">กำลังโหลดข้อมูลผู้สอน...</div>
-            </div>
+        <div class="px-4 md:px-8 pb-4 md:pb-6">
+          <div class="max-w-4xl mx-auto rounded-[22px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-200/40 dark:shadow-black/20 p-2 flex gap-2">
+            <input id="user-input" type="text" autocomplete="off" placeholder="พิมพ์คำถาม เช่น พรุ่งนี้สอนอะไร..." class="flex-1 min-w-0 bg-transparent outline-none px-3 py-3 text-sm text-slate-800 dark:text-white placeholder:text-slate-400" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage()}">
+            <button id="send-btn" onclick="sendMessage()" class="rounded-2xl px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm hover:shadow-lg hover:shadow-blue-500/20 active:scale-95 transition">ส่ง</button>
+          </div>
+          <div class="text-center text-[10px] text-slate-400 mt-2">ข้อมูลตารางสอนอ้างอิงจากระบบของผู้สอน • กรุณาตรวจสอบอีกครั้งก่อนใช้งานจริง</div>
         </div>
-    </div>
+      </section>
 
-    <script>
-        function toggleTheme() {
-            const html = document.documentElement;
-            const themeBtn = document.getElementById('theme-toggle');
-            if (html.classList.contains('dark')) {
-                html.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-                themeBtn.textContent = '🌙';
-            } else {
-                html.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-                themeBtn.textContent = '☀️';
-            }
-        }
+      <!-- Schedule view -->
+      <section id="schedule-view" class="hidden flex-1 min-h-0 flex-col">
+        <div class="px-4 md:px-8 py-6 border-b border-slate-200/70 dark:border-slate-700/50">
+          <div class="flex items-end justify-between gap-3">
+            <div><div class="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1">SCHEDULE</div><h2 class="text-2xl font-black">ตารางสอน</h2><p id="schedule-subtitle" class="text-xs text-slate-500 mt-1">กำลังโหลดข้อมูล...</p></div>
+            <button onclick="showView('chat')" class="rounded-xl px-3 py-2 bg-slate-100 dark:bg-slate-800 text-xs font-bold">← กลับแชท</button>
+          </div>
+        </div>
+        <div id="schedule-content" class="modal-scroll flex-1 overflow-y-auto px-4 md:px-8 py-5 grid grid-cols-1 lg:grid-cols-2 gap-4 content-start"></div>
+      </section>
 
-        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-            document.getElementById('theme-toggle').textContent = '☀️';
-        } else {
-            document.documentElement.classList.remove('dark');
-            document.getElementById('theme-toggle').textContent = '🌙';
-        }
+      <!-- Teacher view -->
+      <section id="teacher-view" class="hidden flex-1 min-h-0 flex-col">
+        <div class="px-4 md:px-8 py-6 border-b border-slate-200/70 dark:border-slate-700/50">
+          <div class="flex items-end justify-between gap-3">
+            <div><div class="text-xs text-blue-600 dark:text-blue-400 font-bold mb-1">TEACHER PROFILE</div><h2 class="text-2xl font-black">ข้อมูลผู้สอน</h2><p class="text-xs text-slate-500 mt-1">ข้อมูลประจำภาคเรียน</p></div>
+            <button onclick="showView('chat')" class="rounded-xl px-3 py-2 bg-slate-100 dark:bg-slate-800 text-xs font-bold">← กลับแชท</button>
+          </div>
+        </div>
+        <div id="teacher-content" class="modal-scroll flex-1 overflow-y-auto px-4 md:px-8 py-5"></div>
+      </section>
 
-        const inputField = document.getElementById('user-input');
-        const chatBox = document.getElementById('chat-box');
-        const chatHistory = [];
+      <!-- Mobile nav -->
+      <nav class="md:hidden shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur safe-bottom grid grid-cols-3 p-2">
+        <button id="m-chat" onclick="showView('chat')" class="rounded-2xl py-2 text-[10px] font-bold text-blue-600 dark:text-blue-400"><div class="text-lg">💬</div>แชท</button>
+        <button id="m-schedule" onclick="openPanel('schedule')" class="rounded-2xl py-2 text-[10px] font-bold text-slate-500"><div class="text-lg">🗓️</div>ตาราง</button>
+        <button id="m-teacher" onclick="openPanel('teacher')" class="rounded-2xl py-2 text-[10px] font-bold text-slate-500"><div class="text-lg">👨‍🏫</div>ผู้สอน</button>
+      </nav>
+    </main>
+  </div>
+</div>
 
+<script>
+let scheduleData = null;
+let isSending = false;
+const chatHistory = [];
 
-        // ตารางสอนและข้อมูลผู้สอน
-        let scheduleData = null;
+function setTheme(mode) {
+  const html = document.documentElement;
+  const dark = mode === 'dark' || (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  html.classList.toggle('dark', dark);
+  localStorage.setItem('theme', mode);
+  const icon = dark ? '☀' : '☾';
+  document.getElementById('theme-top').textContent = icon;
+  document.getElementById('theme-label').textContent = mode === 'auto' ? 'อัตโนมัติ' : dark ? 'มืด' : 'สว่าง';
+}
+function toggleTheme() {
+  const current = localStorage.getItem('theme') || 'auto';
+  setTheme(current === 'dark' ? 'light' : 'dark');
+}
+setTheme(localStorage.getItem('theme') || 'auto');
 
-        async function loadScheduleData() {
-            if (scheduleData) return scheduleData;
-            const res = await fetch('/schedule.json');
-            if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
-            scheduleData = await res.json();
-            return scheduleData;
-        }
+async function loadData() {
+  if (scheduleData) return scheduleData;
+  const res = await fetch('/schedule.json');
+  if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+  scheduleData = await res.json();
+  document.getElementById('side-term').textContent = 'ภาคเรียน ' + (scheduleData.teacher_info?.term || '-');
+  return scheduleData;
+}
 
-        function getThaiDay(day) {
-            const days = {
-                monday: 'จันทร์',
-                tuesday: 'อังคาร',
-                wednesday: 'พุธ',
-                thursday: 'พฤหัสบดี',
-                friday: 'ศุกร์'
-            };
-            return days[day] || day;
-        }
+function thaiDay(day) {
+  return ({monday:'จันทร์',tuesday:'อังคาร',wednesday:'พุธ',thursday:'พฤหัสบดี',friday:'ศุกร์'})[day] || day;
+}
+function cleanType(type) {
+  return String(type || '').replace('ปฏิบัติ (ป.)','ปฏิบัติ').replace('ทฤษฎี (ท.)','ทฤษฎี');
+}
 
-        function getThaiType(type) {
-            return String(type || '').replace('ปฏิบัติ (ป.)', 'ปฏิบัติ').replace('ทฤษฎี (ท.)', 'ทฤษฎี');
-        }
+function showView(view) {
+  ['chat','schedule','teacher'].forEach(v => document.getElementById(v+'-view').classList.toggle('hidden', v !== view));
+  ['nav-chat','nav-schedule','nav-teacher'].forEach(id => {
+    const el=document.getElementById(id); if(!el) return;
+    const active=id==='nav-'+view;
+    el.classList.toggle('nav-active',active);
+    el.classList.toggle('text-slate-600',!active);
+    el.classList.toggle('dark:text-slate-300',!active);
+  });
+  ['m-chat','m-schedule','m-teacher'].forEach(id => {
+    const el=document.getElementById(id); if(!el) return;
+    el.classList.toggle('text-blue-600', id==='m-'+view);
+    el.classList.toggle('dark:text-blue-400', id==='m-'+view);
+    el.classList.toggle('text-slate-500', id!=='m-'+view);
+  });
+}
+async function openPanel(type) {
+  showView(type);
+  try {
+    const data=await loadData();
+    if(type==='schedule') renderSchedule(data);
+    if(type==='teacher') renderTeacher(data);
+  } catch(e) {
+    document.getElementById(type+'-content').innerHTML='<div class="text-center text-red-500 py-12">ไม่สามารถโหลดข้อมูลได้</div>';
+  }
+}
 
-        async function openScheduleModal() {
-            const modal = document.getElementById('schedule-modal');
-            modal.classList.remove('hidden');
-            try {
-                const data = await loadScheduleData();
-                renderScheduleUI(data);
-            } catch (err) {
-                document.getElementById('schedule-content').innerHTML =
-                    '<div class="text-red-500 text-center py-8">ไม่สามารถโหลดข้อมูลตารางสอนได้</div>';
-            }
-        }
+function renderSchedule(data) {
+  const el=document.getElementById('schedule-content');
+  document.getElementById('schedule-subtitle').textContent='ภาคเรียน '+(data.teacher_info?.term||'-')+' • '+(data.teacher_info?.name||'-');
+  const order=['monday','tuesday','wednesday','thursday','friday'];
+  el.innerHTML=order.map((day,i)=>{
+    const classes=data.schedule?.[day]||[];
+    return `
+      <article class="rounded-[22px] overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+        <div class="px-4 py-3 flex items-center justify-between bg-gradient-to-r from-slate-900 to-slate-700 dark:from-blue-950 dark:to-indigo-950 text-white">
+          <div class="font-black text-sm">วัน${thaiDay(day)}</div>
+          <span class="text-[10px] px-2 py-1 rounded-full bg-white/10">${classes.length} คาบ</span>
+        </div>
+        <div class="divide-y divide-slate-100 dark:divide-slate-800">
+          ${classes.length ? classes.map(c=>`
+            <div class="p-4 flex gap-3">
+              <div class="w-[82px] shrink-0">
+                <div class="font-black text-sm text-blue-600 dark:text-blue-400">${c.time||'-'}</div>
+                <div class="text-[10px] text-slate-400 mt-1">${cleanType(c.type)}</div>
+              </div>
+              <div class="min-w-0">
+                <div class="font-bold text-sm leading-6 text-slate-800 dark:text-slate-100">${c.subject||'-'}</div>
+                <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">รหัส ${c.code||'-'} • ห้อง ${c.room||'-'} • กลุ่ม ${c.group||'-'}</div>
+              </div>
+            </div>
+          `).join('') : '<div class="p-5 text-sm text-slate-400">ไม่มีการเรียนการสอน</div>'}
+        </div>
+      </article>`;
+  }).join('');
+}
 
-        function closeScheduleModal() {
-            document.getElementById('schedule-modal').classList.add('hidden');
-        }
+function renderTeacher(data) {
+  const t=data.teacher_info||{};
+  document.getElementById('teacher-content').innerHTML=`
+    <div class="max-w-4xl mx-auto">
+      <div class="hero-grid rounded-[28px] p-6 md:p-8 text-white overflow-hidden relative">
+        <div class="absolute -right-10 -top-16 w-52 h-52 rounded-full border-[35px] border-white/5"></div>
+        <div class="relative flex flex-col md:flex-row md:items-end gap-5">
+          <div class="w-20 h-20 rounded-[24px] bg-white/10 border border-white/15 grid place-items-center text-4xl">👨‍🏫</div>
+          <div>
+            <div class="text-xs text-blue-100 mb-1">ผู้สอนประจำภาคเรียน ${t.term||'-'}</div>
+            <h3 class="text-2xl font-black">${t.name||'-'}</h3>
+            <p class="text-sm text-blue-100 mt-1">${t.position||'-'}</p>
+          </div>
+        </div>
+      </div>
 
-        function renderScheduleUI(data) {
-            const container = document.getElementById('schedule-content');
-            const schedule = data.schedule || {};
-            const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-            let html = '';
+      <div class="grid md:grid-cols-2 gap-4 mt-4">
+        <div class="rounded-[22px] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-5">
+          <div class="font-black mb-4">ข้อมูลทั่วไป</div>
+          ${[
+            ['วุฒิการศึกษา',t.degree],['สาขา',t.department],['หน่วยงาน',t.college],['ตำแหน่ง',t.position],['ภาคเรียน',t.term]
+          ].map(r=>`<div class="py-3 border-b last:border-0 border-slate-100 dark:border-slate-800 flex gap-4"><div class="w-28 shrink-0 text-xs text-slate-400">${r[0]}</div><div class="text-sm font-bold">${r[1]||'-'}</div></div>`).join('')}
+        </div>
+        <div>
+          <div class="grid grid-cols-3 gap-3">
+            ${[['ทฤษฎี',t.total_theory_hours],['ปฏิบัติ',t.total_practical_hours],['รวม',t.total_hours]].map(r=>`<div class="rounded-[22px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-4 text-center"><div class="text-2xl font-black text-blue-600 dark:text-blue-400">${r[1]??0}</div><div class="text-[11px] text-slate-500 mt-1">ชั่วโมง${r[0]}</div></div>`).join('')}
+          </div>
+          <div class="mt-3 rounded-[22px] bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 p-5">
+            <div class="font-black text-sm mb-2">ภาพรวม</div>
+            <p class="text-xs leading-6 text-slate-600 dark:text-slate-300">ข้อมูลผู้สอนและภาระการสอนแสดงตามข้อมูลประจำภาคเรียนในระบบ</p>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
 
-            if (data.teacher_info) {
-                html += '<div class="bg-blue-50 dark:bg-slate-700/50 p-3 rounded-xl border border-blue-100 dark:border-slate-600">';
-                html += '<div class="font-bold text-blue-700 dark:text-blue-300">' + (data.teacher_info.name || '-') + '</div>';
-                html += '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1">ภาคเรียน ' + (data.teacher_info.term || '-') + '</div>';
-                html += '</div>';
-            }
+function quickAsk(text) {
+  document.getElementById('user-input').value=text;
+  sendMessage();
+}
 
-            dayOrder.forEach(function(day) {
-                const classes = schedule[day] || [];
-                html += '<div class="border dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">';
-                html += '<div class="bg-blue-600 dark:bg-blue-700 text-white font-bold px-3 py-2 text-sm">📌 วัน' + getThaiDay(day) + '</div>';
-                html += '<div class="divide-y dark:divide-slate-700 bg-white dark:bg-slate-800">';
+function addMessage(role, text, html=false) {
+  const box=document.getElementById('chat-box');
+  const wrap=document.createElement('div');
+  wrap.className='message flex gap-3 max-w-3xl '+(role==='user'?'ml-auto flex-row-reverse':'');
+  const avatar=document.createElement('div');
+  avatar.className='w-9 h-9 shrink-0 rounded-2xl grid place-items-center text-sm '+(role==='user'?'bg-slate-900 dark:bg-white dark:text-slate-900 text-white':'bg-gradient-to-br from-blue-500 to-indigo-600 text-white');
+  avatar.textContent=role==='user'?'คุณ':'AI';
+  const bubble=document.createElement('div');
+  bubble.className='rounded-2xl px-4 py-3 text-sm leading-7 '+(role==='user'?'bg-blue-600 text-white rounded-tr-md':'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-md');
+  if(html) bubble.innerHTML=text; else bubble.textContent=text;
+  wrap.append(avatar,bubble); box.appendChild(wrap); box.scrollTop=box.scrollHeight;
+  return bubble;
+}
 
-                if (classes.length) {
-                    classes.forEach(function(c) {
-                        html += '<div class="p-3 text-xs">';
-                        html += '<div class="font-semibold text-blue-600 dark:text-blue-400 mb-0.5">' + (c.time || '-') + '</div>';
-                        html += '<div class="font-medium dark:text-slate-100 leading-relaxed">' + (c.subject || '-') + '</div>';
-                        html += '<div class="text-gray-500 dark:text-gray-400 text-[11px] mt-1">รหัสวิชา: ' + (c.code || '-') + ' · ห้อง: ' + (c.room || '-') + ' · กลุ่ม: ' + (c.group || '-') + '</div>';
-                        if (c.type) html += '<div class="text-gray-500 dark:text-gray-400 text-[11px] mt-0.5">รูปแบบ: ' + getThaiType(c.type) + '</div>';
-                        html += '</div>';
-                    });
-                } else {
-                    html += '<div class="p-3 text-xs text-gray-400">ไม่มีการเรียนการสอน</div>';
-                }
+async function sendMessage() {
+  if(isSending) return;
+  const input=document.getElementById('user-input');
+  const btn=document.getElementById('send-btn');
+  const message=input.value.trim();
+  if(!message) return;
+  isSending=true; input.value=''; input.disabled=true; btn.disabled=true; btn.classList.add('opacity-60');
+  addMessage('user',message);
+  const thinking=addMessage('assistant','กำลังค้นข้อมูล...');
+  try {
+    const response=await fetch('/api/chat',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message,history:chatHistory.slice(-8)})
+    });
+    if(!response.ok){
+      let msg='เกิดข้อผิดพลาดในการเชื่อมต่อ';
+      try { const d=await response.json(); msg=d.error||msg; } catch(_){}
+      thinking.textContent=msg; thinking.classList.add('!text-red-500');
+      return;
+    }
+    const reader=response.body?.getReader();
+    if(!reader) throw new Error('ไม่มีข้อมูลตอบกลับ');
+    const decoder=new TextDecoder('utf-8'); let answer='';
+    while(true){
+      const {done,value}=await reader.read(); if(done) break;
+      answer+=decoder.decode(value,{stream:true});
+      thinking.innerHTML=typeof marked!=='undefined' ? marked.parse(answer) : answer.replace(/\n/g,'<br>');
+      document.getElementById('chat-box').scrollTop=document.getElementById('chat-box').scrollHeight;
+    }
+    chatHistory.push({role:'user',content:message},{role:'assistant',content:answer});
+  } catch(e) {
+    thinking.textContent='ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง';
+    thinking.classList.add('!text-red-500');
+  } finally {
+    isSending=false; input.disabled=false; btn.disabled=false; btn.classList.remove('opacity-60'); input.focus();
+  }
+}
 
-                html += '</div></div>';
-            });
-
-            container.innerHTML = html;
-        }
-
-        async function openTeacherModal() {
-            const modal = document.getElementById('teacher-modal');
-            modal.classList.remove('hidden');
-            try {
-                const data = await loadScheduleData();
-                renderTeacherUI(data);
-            } catch (err) {
-                document.getElementById('teacher-content').innerHTML =
-                    '<div class="text-red-500 text-center py-8">ไม่สามารถโหลดข้อมูลผู้สอนได้</div>';
-            }
-        }
-
-        function closeTeacherModal() {
-            document.getElementById('teacher-modal').classList.add('hidden');
-        }
-
-        function renderTeacherUI(data) {
-            const container = document.getElementById('teacher-content');
-            const teacher = data.teacher_info || {};
-            let html = '';
-
-            html += '<div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-5 shadow-md mb-4">';
-            html += '<div class="text-4xl mb-3">👨‍🏫</div>';
-            html += '<div class="text-lg font-bold">' + (teacher.name || '-') + '</div>';
-            html += '<div class="text-blue-100 text-xs mt-1">' + (teacher.position || '-') + '</div>';
-            html += '</div>';
-
-            html += '<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 px-4 shadow-sm">';
-            const rows = [
-                ['วุฒิการศึกษา', teacher.degree],
-                ['สาขา', teacher.department],
-                ['หน่วยงาน', teacher.college],
-                ['ตำแหน่ง', teacher.position],
-                ['ภาคเรียน', teacher.term]
-            ];
-
-            rows.forEach(function(row) {
-                html += '<div class="flex gap-3 py-3 border-b border-slate-200 dark:border-slate-700 last:border-b-0">';
-                html += '<div class="w-24 shrink-0 text-slate-500 dark:text-slate-400">' + row[0] + '</div>';
-                html += '<div class="flex-1 font-semibold">' + (row[1] || '-') + '</div>';
-                html += '</div>';
-            });
-            html += '</div>';
-
-            html += '<div class="grid grid-cols-3 gap-2 mt-4">';
-            const stats = [
-                ['ชั่วโมงทฤษฎี', teacher.total_theory_hours],
-                ['ชั่วโมงปฏิบัติ', teacher.total_practical_hours],
-                ['ชั่วโมงรวม', teacher.total_hours]
-            ];
-
-            stats.forEach(function(stat) {
-                html += '<div class="bg-blue-50 dark:bg-slate-700/60 rounded-xl p-3 text-center">';
-                html += '<div class="text-lg font-bold text-blue-600 dark:text-blue-400">' + (stat[1] ?? 0) + '</div>';
-                html += '<div class="text-[10px] text-slate-500 dark:text-slate-400">' + stat[0] + '</div>';
-                html += '</div>';
-            });
-            html += '</div>';
-
-            container.innerHTML = html;
-        }
-
-        async function sendMessage() {
-            const message = inputField.value.trim();
-            if (!message) return;
-
-            const userDiv = document.createElement('div');
-            userDiv.className = 'bg-blue-600 dark:bg-blue-500 text-white p-3 rounded-2xl max-w-[85%] ml-auto text-sm';
-            userDiv.textContent = message;
-            chatBox.appendChild(userDiv);
-
-            inputField.value = '';
-            inputField.disabled = true;
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            const aiDiv = document.createElement('div');
-            aiDiv.className = 'bg-gray-100 dark:bg-slate-700 p-3 rounded-2xl max-w-[85%] mr-auto text-sm text-gray-800 dark:text-gray-100 markdown-content';
-            aiDiv.textContent = 'กำลังคิด...';
-            chatBox.appendChild(aiDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message })
-                });
-
-                if (!response.ok) {
-                    let errorMessage = 'เกิดข้อผิดพลาดในการเชื่อมต่อ';
-                    try {
-                        const errorData = await response.json();
-                        errorMessage = errorData.error || errorMessage;
-                    } catch (_) {}
-                    aiDiv.textContent = errorMessage;
-                    aiDiv.classList.add('text-red-500');
-                    return;
-                }
-
-                if (!response.body) throw new Error('เซิร์ฟเวอร์ไม่ได้ส่งข้อมูลกลับมา');
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder('utf-8');
-                let rawText = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    
-                    rawText += decoder.decode(value, { stream: true });
-                    aiDiv.innerHTML = marked.parse(rawText);
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                }
-
-            } catch (error) {
-                aiDiv.textContent = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง';
-                aiDiv.classList.add('text-red-500');
-            } finally {
-                inputField.disabled = false;
-                inputField.focus();
-            }
-        }
-    </script>
+loadData().catch(()=>{});
+</script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </body>
 </html>
