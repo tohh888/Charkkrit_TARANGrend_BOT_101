@@ -6,9 +6,7 @@
     <title>Chatbot ตารางเรียนอาจารย์จักรกฤษณ์</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-        }
+        tailwind.config = { darkMode: 'class' }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
@@ -21,38 +19,34 @@
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 h-[100dvh] flex items-center justify-center p-0 sm:p-4 transition-colors duration-300 overflow-hidden">
 
-    <div class="bg-white dark:bg-slate-800 rounded-none sm:rounded-2xl shadow-xl w-full max-w-md h-full sm:h-[620px] flex flex-col overflow-hidden transition-colors duration-300">
-        <!-- Header พร้อมปุ่มสลับธีม -->
-        <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative shrink-0">
-            <button onclick="toggleTheme()" id="theme-toggle" class="absolute right-3 top-3 p-2 rounded-lg bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm">
+    <div class="bg-white dark:bg-slate-800 rounded-none sm:rounded-2xl shadow-xl w-full max-w-md h-full sm:h-[620px] flex flex-col overflow-hidden transition-colors duration-300 relative">
+        
+        <!-- Header พร้อมปุ่มแฮมเบอร์เกอร์เปิดตารางเรียน -->
+        <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative shrink-0 flex items-center justify-between">
+            <!-- ปุ่มแฮมเบอร์เกอร์ (ดูตารางเรียน) -->
+            <button onclick="openScheduleModal()" class="p-2 rounded-lg bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-lg" title="ดูตารางเรียน">
+                🍔
+            </button>
+
+            <div>
+                <div class="flex items-center justify-center gap-2 font-bold text-base sm:text-lg">
+                    <span>🤖</span> สอบถามตารางสอน
+                </div>
+                <div class="text-xs font-medium text-blue-100 mt-0.5">
+                    อาจารย์จักรกฤษณ์ วงศ์อาษา
+                </div>
+            </div>
+
+            <!-- ปุ่มเปลี่ยนธีม -->
+            <button onclick="toggleTheme()" id="theme-toggle" class="p-2 rounded-lg bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm">
                 🌙
-            </button>
-
-            <div class="flex items-center justify-center gap-2 font-bold text-lg">
-                <span>🤖</span> สอบถามตารางสอน
-            </div>
-            <div class="text-xs font-medium text-blue-100 mt-1">
-                อาจารย์จักรกฤษณ์ วงศ์อาษา
-            </div>
-            <div class="text-[11px] text-blue-200">
-                แผนกเทคโนโลยีสารสนเทศ | วิทยาลัยเทคนิคสัตหีบ
-            </div>
-        </div>
-
-        <!-- ปุ่ม เมนูทางเลือก (Quick Action Menu) -->
-        <div class="flex gap-2 p-2 bg-slate-50 dark:bg-slate-700/50 border-b dark:border-slate-700 shrink-0 overflow-x-auto text-xs">
-            <button onclick="sendQuickMessage('ขอข้อมูลอาจารย์หน่อยครับ')" class="flex-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 font-medium py-1.5 px-3 rounded-lg border border-blue-200 dark:border-slate-600 shadow-sm transition whitespace-nowrap">
-                👤 ข้อมูลผู้สอน
-            </button>
-            <button onclick="sendQuickMessage('ขอตารางสอนทั้งหมดหน่อยครับ')" class="flex-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 font-medium py-1.5 px-3 rounded-lg border border-blue-200 dark:border-slate-600 shadow-sm transition whitespace-nowrap">
-                📅 ตารางสอนทั้งหมด
             </button>
         </div>
 
         <!-- Chat Box -->
         <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3">
             <div class="bg-gray-100 dark:bg-slate-700 p-3 rounded-2xl max-w-[85%] self-start text-gray-800 dark:text-gray-100 text-sm">
-                สวัสดีครับ! สอบถามตารางสอนของอาจารย์จักรกฤษณ์ได้เลยครับ หรือกดปุ่มเมนูด้านบนเพื่อดูข้อมูลได้ทันที
+                สวัสดีครับ! สอบถามตารางสอนได้เลย หรือกดปุ่ม 🍔 มุมซ้ายบนเพื่อดูตารางเรียนทั้งหมดได้ทันทีครับ
             </div>
         </div>
 
@@ -65,6 +59,25 @@
                 ส่ง
             </button>
         </div>
+
+        <!-- Modal / UI แสดงตารางเรียนแยก (เปิดจากการกดปุ่มแฮมเบอร์เกอร์) -->
+        <div id="schedule-modal" class="hidden absolute inset-0 bg-white dark:bg-slate-800 z-50 flex flex-col transition-all duration-300">
+            <!-- Header Modal -->
+            <div class="bg-slate-100 dark:bg-slate-700 p-3 border-b dark:border-slate-600 flex justify-between items-center shrink-0">
+                <h3 class="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2">
+                    📅 ตารางสอนทั้งหมด
+                </h3>
+                <button onclick="closeScheduleModal()" class="text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 text-xl font-bold px-2">
+                    ✕
+                </button>
+            </div>
+            
+            <!-- Content แสดงข้อมูลตารางเรียนจาก JSON -->
+            <div id="schedule-content" class="flex-1 p-4 overflow-y-auto space-y-4 text-sm text-slate-800 dark:text-slate-200">
+                <div class="text-center text-gray-400 py-8">กำลังโหลดข้อมูลตารางเรียน...</div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -93,16 +106,75 @@
         const inputField = document.getElementById('user-input');
         const chatBox = document.getElementById('chat-box');
 
-        inputField.addEventListener('focus', () => {
-            setTimeout(() => {
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }, 300);
-        });
+        // ฟังก์ชันเปิด-ปิด Modal ตารางเรียน
+        let isScheduleLoaded = false;
+        async function openScheduleModal() {
+            const modal = document.getElementById('schedule-modal');
+            modal.classList.remove('hidden');
 
-        // ฟังก์ชันสำหรับปุ่ม Quick Menu
-        function sendQuickMessage(text) {
-            inputField.value = text;
-            sendMessage();
+            if (!isScheduleLoaded) {
+                try {
+                    const res = await fetch('/schedule.json');
+                    const data = await res.json();
+                    renderScheduleUI(data);
+                    isScheduleLoaded = true;
+                } catch (err) {
+                    document.getElementById('schedule-content').innerHTML = '<div class="text-red-500 text-center">ไม่สามารถโหลดข้อมูลตารางเรียนได้</div>';
+                }
+            }
+        }
+
+        function closeScheduleModal() {
+            document.getElementById('schedule-modal').classList.add('hidden');
+        }
+
+        // ฟังก์ชันสร้าง UI ตารางเรียนจากไฟล์ JSON โดยตรง
+        function renderScheduleUI(data) {
+            const container = document.getElementById('schedule-content');
+            let html = '';
+
+            if (data.teacher) {
+                html += `
+                    <div class="bg-blue-50 dark:bg-slate-700/50 p-3 rounded-xl border border-blue-100 dark:border-slate-600 text-xs space-y-1">
+                        <div><strong>ผู้สอน:</strong> ${data.teacher.name || '-'}</div>
+                        <div><strong>ตำแหน่ง:</strong> ${data.teacher.position || '-'}</div>
+                        <div><strong>ภาคเรียน:</strong> ${data.semester || '-'}</div>
+                    </div>
+                `;
+            }
+
+            const schedule = data.schedule || data;
+            for (const [day, classes] of Object.entries(schedule)) {
+                if (typeof classes !== 'object' || day === 'teacher' || day === 'semester') continue;
+                
+                html += `
+                    <div class="border dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
+                        <div class="bg-blue-600 text-white font-bold px-3 py-1.5 text-xs">
+                            📌 วัน${day}
+                        </div>
+                        <div class="divide-y dark:divide-slate-700 bg-white dark:bg-slate-800">
+                `;
+
+                if (Array.isArray(classes) && classes.length > 0) {
+                    classes.forEach(c => {
+                        html += `
+                            <div class="p-2.5 text-xs">
+                                <div class="font-semibold text-blue-600 dark:text-blue-400">${c.time || c.period || ''}</div>
+                                <div class="font-medium dark:text-slate-100">${c.subject || c.course || '-'}</div>
+                                <div class="text-gray-500 dark:text-gray-400 text-[11px] mt-0.5">
+                                    ห้อง: ${c.room || '-'} | กลุ่ม: ${c.group || '-'}
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `<div class="p-2.5 text-xs text-gray-400 italic">ไม่มีการเรียนการสอน</div>`;
+                }
+
+                html += `</div></div>`;
+            }
+
+            container.innerHTML = html;
         }
 
         async function sendMessage() {
