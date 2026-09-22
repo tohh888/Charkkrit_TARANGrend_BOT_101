@@ -150,16 +150,42 @@ function getFreeSlots(classes) {
     return slots;
 }
 
-function localScheduleAnswer(message) {
+function localScheduleAnswer(message, history = []) {
     const q = normalize(message); const teacher = scheduleData.teacher_info || {}; const schedule = scheduleData.schedule || {};
-    const scheduleWords = /(ตาราง|เรียน|สอน|คาบ|วิชา|ห้อง|กลุ่ม|ว่าง|เลิก|เริ่ม|กี่โมง|เมื่อไหร่|กี่คาบ|วันนี้|พรุ่งนี้|มะรืน|เช้า|บ่าย|เย็น)/;
+    const scheduleWords = /(ตาราง|เรียน|สอน|คาบ|วิชา|ห้อง|กลุ่ม|ว่าง|เลิก|เริ่ม|กี่โมง|เมื่อไหร่|กี่คาบ|วันนี้|พรุ่งนี้|มะรืน|วันจันทร์|วันอังคาร|วันพุธ|วันพฤหัส|วันพฤหัสบดี|วันศุกร์|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์|เช้า|บ่าย|เย็น)/;
+
+    // จำบริบทจากคำถามก่อนหน้า เพื่อรองรับคำถามต่อเนื่อง
+    const recentUserMessages = history
+        .filter(m => m?.role === 'user' && typeof m.content === 'string')
+        .map(m => m.content)
+        .slice(-4);
+
+    let contextDay = null;
+    let contextSubject = null;
+    for (let i = recentUserMessages.length - 1; i >= 0; i--) {
+        if (!contextDay) contextDay = findDay(recentUserMessages[i]);
+        if (!contextSubject) contextSubject = findSubject(normalize(recentUserMessages[i]));
+        if (contextDay && contextSubject) break;
+    }
+
+    const explicitDay = findDay(q);
+    const day = explicitDay || (
+        /(วันนั้น|วันดังกล่าว|วันเดิม|แล้ววันนั้น|วันนั้นล่ะ)/.test(q)
+            ? contextDay
+            : null
+    );
+
+    const subject = findSubject(q) || (
+        /(วิชานั้น|วิชาเดิม|อันนั้น|ตัวนั้น|วิชานี้)/.test(q)
+            ? contextSubject
+            : null
+    );
 
     if (/(ข้อมูล|ประวัติ|โปรไฟล์|เกี่ยวกับ).{0,12}(อาจารย์|ครู|ผู้สอน)/.test(q) || /(อาจารย์|ครู|ผู้สอน).{0,12}(ชื่อ|จบ|วุฒิ|ตำแหน่ง|สังกัด|อยู่ที่ไหน)/.test(q) || /^(ขอ)?(ข้อมูล)?อาจารย์/.test(q)) {
         return ['- ชื่อ: ' + (teacher.name || '-'), '- วุฒิการศึกษา: ' + (teacher.degree || '-'), '- ตำแหน่ง: ' + (teacher.position || '-'), '- สังกัด: ' + (teacher.college || '-')].join('\n');
     }
     if (/(ตารางเรียนทั้งหมด|ตารางสอนทั้งหมด|ตารางทั้งหมด|ดูตาราง|ตารางอาจารย์)/.test(q)) return DAY_KEYS.map(day => '- วัน' + DAY_LABELS[day] + ': ' + formatClasses(getDayClasses(day)).replace(/^- /, '')).join('\n');
 
-    const day = findDay(q); const subject = findSubject(q);
     if (subject) {
         const occurrences = Object.entries(schedule).flatMap(([d, classes]) => classes.filter(c => c.code === subject.code || normalize(c.subject) === normalize(subject.subject)).map(c => ({ day: d, ...c })));
         if (day) { const dayOccurrences = occurrences.filter(c => c.day === day); if (!dayOccurrences.length) return '- วัน' + DAY_LABELS[day] + 'ไม่มีวิชา' + subject.subject; return ['- ' + subject.subject + ' (' + subject.code + ') วัน' + DAY_LABELS[day], ...dayOccurrences.map(formatClass)].join('\n'); }
@@ -168,7 +194,7 @@ function localScheduleAnswer(message) {
         return occurrences.map(c => '- วัน' + DAY_LABELS[c.day] + ' ' + formatClass(c)).join('\n') || '- ไม่พบวิชานี้ในตาราง';
     }
 
-    if (day && scheduleWords.test(q)) {
+    if (day && (scheduleWords.test(q) || explicitDay || contextDay)) {
         let classes = getDayClasses(day);
         if (/(เช้า|ตอนเช้า)/.test(q)) classes = classes.filter(c => (parseTimeRange(c.time)?.start ?? 9999) < 12 * 60);
         if (/(บ่าย|ตอนบ่าย)/.test(q)) classes = classes.filter(c => (parseTimeRange(c.time)?.start ?? -1) >= 12 * 60);
@@ -224,7 +250,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     // คำถามตารางเรียนที่ตอบจาก JSON ไม่ต้องเสียโควตา AI
-    const localAnswer = localScheduleAnswer(userMessage);
+    const localAnswer = localScheduleAnswer(userMessage, history);
     if (localAnswer) {
         res.type('text/plain; charset=utf-8').send(localAnswer);
         return;
