@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
 <title>ผู้ช่วยตารางสอน | อาจารย์จักรกฤษณ์</title>
 <script src="https://cdn.tailwindcss.com"></script>
@@ -43,6 +43,42 @@ tailwind.config = {
     radial-gradient(circle at 85% 90%, rgba(99,102,241,.16), transparent 36%),
     linear-gradient(135deg,#0a1325,#111f39 55%,#17284b); }
   .safe-bottom { padding-bottom:max(12px, env(safe-area-inset-bottom)); }
+
+
+  /* Mobile keyboard-safe chat composer */
+  #chat-input-area { position: relative; z-index: 40; }
+  @media (max-width: 767px) {
+    body.keyboard-open #chat-view > #quick-actions { display:none; }
+    body.keyboard-open #chat-view > .px-4.md\:px-8.pt-5 { display:none; }
+    body.keyboard-open #mobile-nav { display:none; }
+    body.keyboard-open #chat-input-area {
+      position:fixed;
+      left:0;
+      right:0;
+      bottom:var(--keyboard-bottom, 0px);
+      padding:8px 10px max(8px, env(safe-area-inset-bottom));
+      background:rgba(7,13,24,.96);
+      border-top:1px solid rgba(148,163,184,.18);
+      backdrop-filter:blur(16px);
+      box-shadow:0 -10px 30px rgba(0,0,0,.18);
+    }
+    body:not(.dark).keyboard-open #chat-input-area {
+      background:rgba(255,255,255,.96);
+      border-top-color:rgba(148,163,184,.25);
+    }
+    body.keyboard-open #chat-input-area > .max-w-4xl { max-width:none; }
+    body.keyboard-open #user-input {
+      font-size:16px;
+      min-height:46px;
+    }
+    body.keyboard-open #send-btn {
+      min-width:56px;
+      min-height:46px;
+    }
+    body.keyboard-open #chat-box {
+      padding-bottom:90px;
+    }
+  }
 </style>
 </head>
 
@@ -149,7 +185,7 @@ tailwind.config = {
           </div>
         </div>
 
-        <div class="px-4 md:px-8 pb-4 md:pb-6">
+        <div id="chat-input-area" class="px-4 md:px-8 pb-4 md:pb-6">
           <div class="max-w-4xl mx-auto rounded-[22px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-lg shadow-slate-200/40 dark:shadow-black/20 p-2 flex gap-2">
             <input id="user-input" type="text" autocomplete="off" placeholder="พิมพ์คำถาม เช่น พรุ่งนี้สอนอะไร..." class="flex-1 min-w-0 bg-transparent outline-none px-3 py-3 text-sm text-slate-800 dark:text-white placeholder:text-slate-400" onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();sendMessage()}">
             <button id="send-btn" onclick="sendMessage()" class="rounded-2xl px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-sm hover:shadow-lg hover:shadow-blue-500/20 active:scale-95 transition">ส่ง</button>
@@ -181,7 +217,7 @@ tailwind.config = {
       </section>
 
       <!-- Mobile nav -->
-      <nav class="md:hidden shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur safe-bottom grid grid-cols-3 p-2">
+      <nav id="mobile-nav" class="md:hidden shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur safe-bottom grid grid-cols-3 p-2">
         <button id="m-chat" onclick="showView('chat')" class="rounded-2xl py-2 text-[10px] font-bold text-blue-600 dark:text-blue-400"><div class="text-lg">💬</div>แชท</button>
         <button id="m-schedule" onclick="openPanel('schedule')" class="rounded-2xl py-2 text-[10px] font-bold text-slate-500"><div class="text-lg">🗓️</div>ตาราง</button>
         <button id="m-teacher" onclick="openPanel('teacher')" class="rounded-2xl py-2 text-[10px] font-bold text-slate-500"><div class="text-lg">👨‍🏫</div>ผู้สอน</button>
@@ -375,6 +411,49 @@ async function sendMessage() {
     isSending=false; input.disabled=false; btn.disabled=false; btn.classList.remove('opacity-60'); input.focus();
   }
 }
+
+
+/* Keep the chat input above the Android/iOS on-screen keyboard.
+   visualViewport is important inside mobile/in-app browsers such as Messenger. */
+(function setupKeyboardSafeArea(){
+  const vv = window.visualViewport;
+  if (!vv) return;
+  let keyboardOpen = false;
+
+  function updateKeyboardLayout() {
+    const viewportHeight = vv.height;
+    const windowHeight = window.innerHeight;
+    const keyboardHeight = Math.max(0, windowHeight - viewportHeight - vv.offsetTop);
+    const open = keyboardHeight > 120;
+    keyboardOpen = open;
+
+    document.documentElement.style.setProperty('--keyboard-bottom', keyboardHeight + 'px');
+    document.body.classList.toggle('keyboard-open', open);
+
+    if (open) {
+      requestAnimationFrame(() => {
+        const input = document.getElementById('user-input');
+        if (document.activeElement === input) {
+          input.scrollIntoView({block:'center', inline:'nearest'});
+        }
+      });
+    }
+  }
+
+  vv.addEventListener('resize', updateKeyboardLayout);
+  vv.addEventListener('scroll', updateKeyboardLayout);
+  window.addEventListener('resize', updateKeyboardLayout);
+  updateKeyboardLayout();
+
+  const input = document.getElementById('user-input');
+  input.addEventListener('focus', () => {
+    setTimeout(updateKeyboardLayout, 80);
+    setTimeout(updateKeyboardLayout, 300);
+  });
+  input.addEventListener('blur', () => {
+    setTimeout(updateKeyboardLayout, 120);
+  });
+})();
 
 loadData().catch(()=>{});
 </script>
