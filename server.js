@@ -15,7 +15,6 @@ app.post('/api/chat', async (req, res) => {
         const userMessage = req.body.message;
         res.setHeader('Content-Type', 'text/plain; charset=utf-8');
 
-        // สลับมาใช้ Qwen2.5-32B เสถียรสูง อ่าน JSON เป๊ะ และไม่เจอ Overload
         const stream = hf.chatCompletionStream({
             model: "Qwen/Qwen2.5-32B-Instruct",
             temperature: 0.1,
@@ -39,7 +38,7 @@ ${JSON.stringify(scheduleData)}
                 },
                 { role: "user", content: userMessage }
             ],
-            max_tokens: 300,
+            max_tokens: 1000, // <--- ขยายจาก 300 เป็น 1000 เพื่อรองรับตารางสอนยาวๆ
         });
 
         for await (const chunk of stream) {
