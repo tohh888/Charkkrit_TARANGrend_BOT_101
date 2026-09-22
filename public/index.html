@@ -25,11 +25,11 @@
         <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative shrink-0 flex items-center justify-between">
             <!-- ปุ่มข้อมูล -->
             <div class="flex items-center gap-2">
-                <button onclick="openScheduleModal()" class="p-2.5 rounded-xl bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-xl" title="ตารางสอน" aria-label="เปิดตารางสอน">
-                    📅
+                <button onclick="openScheduleModal()" class="px-3 py-2 rounded-xl bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm font-semibold" title="ตารางสอน" aria-label="เปิดตารางสอน">
+                    📅 ตาราง
                 </button>
-                <button onclick="openTeacherModal()" class="p-2.5 rounded-xl bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-xl" title="ข้อมูลผู้สอน" aria-label="เปิดข้อมูลผู้สอน">
-                    👨‍🏫
+                <button onclick="openTeacherModal()" class="px-3 py-2 rounded-xl bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm font-semibold" title="ข้อมูลผู้สอน" aria-label="เปิดข้อมูลผู้สอน">
+                    👨‍🏫 ผู้สอน
                 </button>
             </div>
 
@@ -51,7 +51,9 @@
         <!-- Chat Box -->
         <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3">
             <div class="bg-gray-100 dark:bg-slate-700 p-3 rounded-2xl max-w-[85%] self-start text-gray-800 dark:text-gray-100 text-sm">
-                สวัสดีครับ! สอบถามตารางสอนได้เลย หรือกด 📅 เพื่อดูตารางสอนทั้งหมด หรือกด 👨‍🏫 เพื่อดูข้อมูลผู้สอนครับ
+                สวัสดีครับ! ถามได้เต็มที่เลยครับ 😎<br>
+                จะถามตรงๆ หรือถามกวนๆ ก็ได้ เช่น <b>“พรุ่งนี้มีไรบ้าง”</b>, <b>“ครูว่างปะ”</b>, <b>“ลินุกซ์เรียนตอนไหนอะ”</b><br>
+                หรือกด 📅 <b>ตาราง</b> / 👨‍🏫 <b>ผู้สอน</b> ได้เลยครับ
             </div>
         </div>
 
@@ -121,6 +123,7 @@
 
         const inputField = document.getElementById('user-input');
         const chatBox = document.getElementById('chat-box');
+        const chatHistory = [];
 
 
         // ตารางสอนและข้อมูลผู้สอน
@@ -302,6 +305,7 @@
                     return;
                 }
 
+                if (!response.body) throw new Error('เซิร์ฟเวอร์ไม่ได้ส่งข้อมูลกลับมา');
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder('utf-8');
                 let rawText = '';
