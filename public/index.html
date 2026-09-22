@@ -25,7 +25,7 @@
         <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative shrink-0 flex items-center justify-between">
             <!-- ปุ่มแฮมเบอร์เกอร์ (ดูตารางเรียน) -->
             <button onclick="openScheduleModal()" class="p-2 rounded-lg bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-lg" title="ดูตารางเรียน">
-                🍔
+                📅
             </button>
 
             <div>
@@ -46,7 +46,7 @@
         <!-- Chat Box -->
         <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3">
             <div class="bg-gray-100 dark:bg-slate-700 p-3 rounded-2xl max-w-[85%] self-start text-gray-800 dark:text-gray-100 text-sm">
-                สวัสดีครับ! สอบถามตารางสอนได้เลย หรือกดปุ่ม 🍔 มุมซ้ายบนเพื่อดูตารางเรียนทั้งหมดได้ทันทีครับ
+                สวัสดีครับ! สอบถามตารางสอนได้เลย หรือกด 📅 เพื่อดูตารางสอนทั้งหมด หรือกด 👨‍🏫 เพื่อดูข้อมูลผู้สอนครับ
             </div>
         </div>
 
@@ -74,10 +74,21 @@
             
             <!-- Content แสดงข้อมูลตารางเรียนจาก JSON -->
             <div id="schedule-content" class="flex-1 p-4 overflow-y-auto space-y-4 text-sm text-slate-800 dark:text-slate-200">
-                <div class="text-center text-gray-400 py-8">กำลังโหลดข้อมูลตารางเรียน...</div>
+                <div class="text-center text-gray-400 py-8">กำลังโหลดข้อมูลตารางสอน...</div>
             </div>
         </div>
 
+        
+        <!-- หน้าต่างข้อมูลผู้สอน -->
+        <div id="teacher-modal" class="hidden absolute inset-0 bg-white dark:bg-slate-800 z-[51] flex flex-col transition-all duration-300">
+            <div class="bg-slate-100 dark:bg-slate-700 p-3 border-b dark:border-slate-600 flex justify-between items-center shrink-0">
+                <h3 class="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2">👨‍🏫 ข้อมูลผู้สอน</h3>
+                <button onclick="closeTeacherModal()" class="text-gray-500 hover:text-red-500 dark:text-gray-300 dark:hover:text-red-400 text-xl font-bold px-2" aria-label="ปิดหน้าต่าง">✕</button>
+            </div>
+            <div id="teacher-content" class="flex-1 p-4 overflow-y-auto text-sm text-slate-800 dark:text-slate-200">
+                <div class="text-center text-gray-400 py-8">กำลังโหลดข้อมูลผู้สอน...</div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -106,21 +117,42 @@
         const inputField = document.getElementById('user-input');
         const chatBox = document.getElementById('chat-box');
 
-        // ฟังก์ชันเปิด-ปิด Modal ตารางเรียน
-        let isScheduleLoaded = false;
+
+        // ตารางสอนและข้อมูลผู้สอน
+        let scheduleData = null;
+
+        async function loadScheduleData() {
+            if (scheduleData) return scheduleData;
+            const res = await fetch('/schedule.json');
+            if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ');
+            scheduleData = await res.json();
+            return scheduleData;
+        }
+
+        function getThaiDay(day) {
+            const days = {
+                monday: 'จันทร์',
+                tuesday: 'อังคาร',
+                wednesday: 'พุธ',
+                thursday: 'พฤหัสบดี',
+                friday: 'ศุกร์'
+            };
+            return days[day] || day;
+        }
+
+        function getThaiType(type) {
+            return String(type || '').replace('ปฏิบัติ (ป.)', 'ปฏิบัติ').replace('ทฤษฎี (ท.)', 'ทฤษฎี');
+        }
+
         async function openScheduleModal() {
             const modal = document.getElementById('schedule-modal');
             modal.classList.remove('hidden');
-
-            if (!isScheduleLoaded) {
-                try {
-                    const res = await fetch('/schedule.json');
-                    const data = await res.json();
-                    renderScheduleUI(data);
-                    isScheduleLoaded = true;
-                } catch (err) {
-                    document.getElementById('schedule-content').innerHTML = '<div class="text-red-500 text-center">ไม่สามารถโหลดข้อมูลตารางเรียนได้</div>';
-                }
+            try {
+                const data = await loadScheduleData();
+                renderScheduleUI(data);
+            } catch (err) {
+                document.getElementById('schedule-content').innerHTML =
+                    '<div class="text-red-500 text-center py-8">ไม่สามารถโหลดข้อมูลตารางสอนได้</div>';
             }
         }
 
@@ -128,51 +160,102 @@
             document.getElementById('schedule-modal').classList.add('hidden');
         }
 
-        // ฟังก์ชันสร้าง UI ตารางเรียนจากไฟล์ JSON โดยตรง
         function renderScheduleUI(data) {
             const container = document.getElementById('schedule-content');
+            const schedule = data.schedule || {};
+            const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
             let html = '';
 
-            if (data.teacher) {
-                html += `
-                    <div class="bg-blue-50 dark:bg-slate-700/50 p-3 rounded-xl border border-blue-100 dark:border-slate-600 text-xs space-y-1">
-                        <div><strong>ผู้สอน:</strong> ${data.teacher.name || '-'}</div>
-                        <div><strong>ตำแหน่ง:</strong> ${data.teacher.position || '-'}</div>
-                        <div><strong>ภาคเรียน:</strong> ${data.semester || '-'}</div>
-                    </div>
-                `;
+            if (data.teacher_info) {
+                html += '<div class="bg-blue-50 dark:bg-slate-700/50 p-3 rounded-xl border border-blue-100 dark:border-slate-600">';
+                html += '<div class="font-bold text-blue-700 dark:text-blue-300">' + (data.teacher_info.name || '-') + '</div>';
+                html += '<div class="text-xs text-slate-500 dark:text-slate-400 mt-1">ภาคเรียน ' + (data.teacher_info.term || '-') + '</div>';
+                html += '</div>';
             }
 
-            const schedule = data.schedule || data;
-            for (const [day, classes] of Object.entries(schedule)) {
-                if (typeof classes !== 'object' || day === 'teacher' || day === 'semester') continue;
-                
-                html += `
-                    <div class="border dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">
-                        <div class="bg-blue-600 text-white font-bold px-3 py-1.5 text-xs">
-                            📌 วัน${day}
-                        </div>
-                        <div class="divide-y dark:divide-slate-700 bg-white dark:bg-slate-800">
-                `;
+            dayOrder.forEach(function(day) {
+                const classes = schedule[day] || [];
+                html += '<div class="border dark:border-slate-700 rounded-xl overflow-hidden shadow-sm">';
+                html += '<div class="bg-blue-600 dark:bg-blue-700 text-white font-bold px-3 py-2 text-sm">📌 วัน' + getThaiDay(day) + '</div>';
+                html += '<div class="divide-y dark:divide-slate-700 bg-white dark:bg-slate-800">';
 
-                if (Array.isArray(classes) && classes.length > 0) {
-                    classes.forEach(c => {
-                        html += `
-                            <div class="p-2.5 text-xs">
-                                <div class="font-semibold text-blue-600 dark:text-blue-400">${c.time || c.period || ''}</div>
-                                <div class="font-medium dark:text-slate-100">${c.subject || c.course || '-'}</div>
-                                <div class="text-gray-500 dark:text-gray-400 text-[11px] mt-0.5">
-                                    ห้อง: ${c.room || '-'} | กลุ่ม: ${c.group || '-'}
-                                </div>
-                            </div>
-                        `;
+                if (classes.length) {
+                    classes.forEach(function(c) {
+                        html += '<div class="p-3 text-xs">';
+                        html += '<div class="font-semibold text-blue-600 dark:text-blue-400 mb-0.5">' + (c.time || '-') + '</div>';
+                        html += '<div class="font-medium dark:text-slate-100 leading-relaxed">' + (c.subject || '-') + '</div>';
+                        html += '<div class="text-gray-500 dark:text-gray-400 text-[11px] mt-1">รหัสวิชา: ' + (c.code || '-') + ' · ห้อง: ' + (c.room || '-') + ' · กลุ่ม: ' + (c.group || '-') + '</div>';
+                        if (c.type) html += '<div class="text-gray-500 dark:text-gray-400 text-[11px] mt-0.5">รูปแบบ: ' + getThaiType(c.type) + '</div>';
+                        html += '</div>';
                     });
                 } else {
-                    html += `<div class="p-2.5 text-xs text-gray-400 italic">ไม่มีการเรียนการสอน</div>`;
+                    html += '<div class="p-3 text-xs text-gray-400">ไม่มีการเรียนการสอน</div>';
                 }
 
-                html += `</div></div>`;
+                html += '</div></div>';
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function openTeacherModal() {
+            const modal = document.getElementById('teacher-modal');
+            modal.classList.remove('hidden');
+            try {
+                const data = await loadScheduleData();
+                renderTeacherUI(data);
+            } catch (err) {
+                document.getElementById('teacher-content').innerHTML =
+                    '<div class="text-red-500 text-center py-8">ไม่สามารถโหลดข้อมูลผู้สอนได้</div>';
             }
+        }
+
+        function closeTeacherModal() {
+            document.getElementById('teacher-modal').classList.add('hidden');
+        }
+
+        function renderTeacherUI(data) {
+            const container = document.getElementById('teacher-content');
+            const teacher = data.teacher_info || {};
+            let html = '';
+
+            html += '<div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-5 shadow-md mb-4">';
+            html += '<div class="text-4xl mb-3">👨‍🏫</div>';
+            html += '<div class="text-lg font-bold">' + (teacher.name || '-') + '</div>';
+            html += '<div class="text-blue-100 text-xs mt-1">' + (teacher.position || '-') + '</div>';
+            html += '</div>';
+
+            html += '<div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 px-4 shadow-sm">';
+            const rows = [
+                ['วุฒิการศึกษา', teacher.degree],
+                ['สาขา', teacher.department],
+                ['หน่วยงาน', teacher.college],
+                ['ตำแหน่ง', teacher.position],
+                ['ภาคเรียน', teacher.term]
+            ];
+
+            rows.forEach(function(row) {
+                html += '<div class="flex gap-3 py-3 border-b border-slate-200 dark:border-slate-700 last:border-b-0">';
+                html += '<div class="w-24 shrink-0 text-slate-500 dark:text-slate-400">' + row[0] + '</div>';
+                html += '<div class="flex-1 font-semibold">' + (row[1] || '-') + '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+
+            html += '<div class="grid grid-cols-3 gap-2 mt-4">';
+            const stats = [
+                ['ชั่วโมงทฤษฎี', teacher.total_theory_hours],
+                ['ชั่วโมงปฏิบัติ', teacher.total_practical_hours],
+                ['ชั่วโมงรวม', teacher.total_hours]
+            ];
+
+            stats.forEach(function(stat) {
+                html += '<div class="bg-blue-50 dark:bg-slate-700/60 rounded-xl p-3 text-center">';
+                html += '<div class="text-lg font-bold text-blue-600 dark:text-blue-400">' + (stat[1] ?? 0) + '</div>';
+                html += '<div class="text-[10px] text-slate-500 dark:text-slate-400">' + stat[0] + '</div>';
+                html += '</div>';
+            });
+            html += '</div>';
 
             container.innerHTML = html;
         }
@@ -187,6 +270,7 @@
             chatBox.appendChild(userDiv);
 
             inputField.value = '';
+            inputField.disabled = true;
             chatBox.scrollTop = chatBox.scrollHeight;
 
             const aiDiv = document.createElement('div');
@@ -201,6 +285,17 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message })
                 });
+
+                if (!response.ok) {
+                    let errorMessage = 'เกิดข้อผิดพลาดในการเชื่อมต่อ';
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (_) {}
+                    aiDiv.textContent = errorMessage;
+                    aiDiv.classList.add('text-red-500');
+                    return;
+                }
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder('utf-8');
