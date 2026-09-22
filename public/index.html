@@ -23,10 +23,15 @@
         
         <!-- Header พร้อมปุ่มแฮมเบอร์เกอร์เปิดตารางเรียน -->
         <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative shrink-0 flex items-center justify-between">
-            <!-- ปุ่มแฮมเบอร์เกอร์ (ดูตารางเรียน) -->
-            <button onclick="openScheduleModal()" class="p-2 rounded-lg bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-lg" title="ดูตารางเรียน">
-                📅
-            </button>
+            <!-- ปุ่มข้อมูล -->
+            <div class="flex items-center gap-2">
+                <button onclick="openScheduleModal()" class="p-2.5 rounded-xl bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-xl" title="ตารางสอน" aria-label="เปิดตารางสอน">
+                    📅
+                </button>
+                <button onclick="openTeacherModal()" class="p-2.5 rounded-xl bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-xl" title="ข้อมูลผู้สอน" aria-label="เปิดข้อมูลผู้สอน">
+                    👨‍🏫
+                </button>
+            </div>
 
             <div>
                 <div class="flex items-center justify-center gap-2 font-bold text-base sm:text-lg">
@@ -311,7 +316,11 @@
                 }
 
             } catch (error) {
-                aiDiv.textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์';
+                aiDiv.textContent = 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง';
+                aiDiv.classList.add('text-red-500');
+            } finally {
+                inputField.disabled = false;
+                inputField.focus();
             }
         }
     </script>
