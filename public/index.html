@@ -19,14 +19,11 @@
         .dark .markdown-content strong { color: #60a5fa; }
     </style>
 </head>
-<!-- ปรับ h-screen เป็น h-[100dvh] รองรับคีย์บอร์ดมือถือ -->
 <body class="bg-slate-100 dark:bg-slate-900 h-[100dvh] flex items-center justify-center p-0 sm:p-4 transition-colors duration-300 overflow-hidden">
 
-    <!-- ปรับ height ให้ยืดหยุ่นสำหรับมือถือ -->
     <div class="bg-white dark:bg-slate-800 rounded-none sm:rounded-2xl shadow-xl w-full max-w-md h-full sm:h-[620px] flex flex-col overflow-hidden transition-colors duration-300">
         <!-- Header พร้อมปุ่มสลับธีม -->
         <div class="bg-blue-600 dark:bg-blue-800 text-white p-4 text-center shadow-md relative shrink-0">
-            <!-- ปุ่มเปลี่ยนธีม -->
             <button onclick="toggleTheme()" id="theme-toggle" class="absolute right-3 top-3 p-2 rounded-lg bg-blue-500 dark:bg-blue-700 hover:bg-blue-400 dark:hover:bg-blue-600 transition text-sm">
                 🌙
             </button>
@@ -42,14 +39,24 @@
             </div>
         </div>
 
+        <!-- ปุ่ม เมนูทางเลือก (Quick Action Menu) -->
+        <div class="flex gap-2 p-2 bg-slate-50 dark:bg-slate-700/50 border-b dark:border-slate-700 shrink-0 overflow-x-auto text-xs">
+            <button onclick="sendQuickMessage('ขอข้อมูลอาจารย์หน่อยครับ')" class="flex-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 font-medium py-1.5 px-3 rounded-lg border border-blue-200 dark:border-slate-600 shadow-sm transition whitespace-nowrap">
+                👤 ข้อมูลผู้สอน
+            </button>
+            <button onclick="sendQuickMessage('ขอตารางสอนทั้งหมดหน่อยครับ')" class="flex-1 bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 text-blue-600 dark:text-blue-400 font-medium py-1.5 px-3 rounded-lg border border-blue-200 dark:border-slate-600 shadow-sm transition whitespace-nowrap">
+                📅 ตารางสอนทั้งหมด
+            </button>
+        </div>
+
         <!-- Chat Box -->
         <div id="chat-box" class="flex-1 p-4 overflow-y-auto space-y-3">
             <div class="bg-gray-100 dark:bg-slate-700 p-3 rounded-2xl max-w-[85%] self-start text-gray-800 dark:text-gray-100 text-sm">
-                สวัสดีครับ! สอบถามตารางสอนของอาจารย์จักรกฤษณ์ได้เลยครับ เช่น "วันจันทร์มีสอนไหม" หรือ "วันศุกร์ว่างตอนไหน"
+                สวัสดีครับ! สอบถามตารางสอนของอาจารย์จักรกฤษณ์ได้เลยครับ หรือกดปุ่มเมนูด้านบนเพื่อดูข้อมูลได้ทันที
             </div>
         </div>
 
-        <!-- Input Box (ใช้น้ำหนัก text-base ในมือถือเพื่อป้องกัน iOS Auto-Zoom) -->
+        <!-- Input Box -->
         <div class="p-3 border-t dark:border-slate-700 flex gap-2 bg-white dark:bg-slate-800 transition-colors duration-300 shrink-0">
             <input type="text" id="user-input" placeholder="พิมพ์ข้อความสอบถาม..." 
                    class="flex-1 border dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-xl px-4 py-2 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -61,7 +68,6 @@
     </div>
 
     <script>
-        // ระบบสลับโหมดมืด / สว่าง
         function toggleTheme() {
             const html = document.documentElement;
             const themeBtn = document.getElementById('theme-toggle');
@@ -76,7 +82,6 @@
             }
         }
 
-        // โหลดค่าธีมเดิมที่เคยเลือกไว้
         if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
             document.getElementById('theme-toggle').textContent = '☀️';
@@ -85,7 +90,6 @@
             document.getElementById('theme-toggle').textContent = '🌙';
         }
 
-        // Auto Scroll สำหรับมือถือเวลากดพิมพ์ข้อความ
         const inputField = document.getElementById('user-input');
         const chatBox = document.getElementById('chat-box');
 
@@ -95,11 +99,16 @@
             }, 300);
         });
 
+        // ฟังก์ชันสำหรับปุ่ม Quick Menu
+        function sendQuickMessage(text) {
+            inputField.value = text;
+            sendMessage();
+        }
+
         async function sendMessage() {
             const message = inputField.value.trim();
             if (!message) return;
 
-            // แสดงข้อความผู้ใช้
             const userDiv = document.createElement('div');
             userDiv.className = 'bg-blue-600 dark:bg-blue-500 text-white p-3 rounded-2xl max-w-[85%] ml-auto text-sm';
             userDiv.textContent = message;
@@ -108,7 +117,6 @@
             inputField.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
 
-            // Element แสดงข้อความ AI
             const aiDiv = document.createElement('div');
             aiDiv.className = 'bg-gray-100 dark:bg-slate-700 p-3 rounded-2xl max-w-[85%] mr-auto text-sm text-gray-800 dark:text-gray-100 markdown-content';
             aiDiv.textContent = 'กำลังคิด...';
