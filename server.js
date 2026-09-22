@@ -9,8 +9,18 @@ app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;
 const HF_TOKEN = process.env.HF_TOKEN;
-const MODEL = process.env.HF_MODEL || 'Qwen/Qwen2.5-32B-Instruct';
+const MODEL = process.env.HF_MODEL || 'Qwen/Qwen3-30B-A3B';
 const PROVIDER = process.env.HF_PROVIDER || 'auto';
+
+// รายชื่อสำรองสำหรับกรณี model ที่ตั้งไว้ไม่มี provider ให้ token นี้ใช้งาน
+const MODEL_CANDIDATES = [
+    MODEL,
+    'Qwen/Qwen3-30B-A3B',
+    'Qwen/Qwen3-32B',
+    'openai/gpt-oss-20b'
+];
+let resolvedModel = MODEL;
+let resolvedProvider = PROVIDER;
 const MAX_TOKENS = Number(process.env.HF_MAX_TOKENS || 450);
 const RATE_LIMIT = Number(process.env.CHAT_RATE_LIMIT || 12);
 const RATE_WINDOW_MS = Number(process.env.CHAT_RATE_WINDOW_MS || 60_000);
@@ -18,6 +28,52 @@ const RATE_WINDOW_MS = Number(process.env.CHAT_RATE_WINDOW_MS || 60_000);
 const hf = HF_TOKEN ? new InferenceClient(HF_TOKEN) : null;
 const rateMap = new Map();
 const cache = new Map();
+
+async function resolveAvailableModel() {
+    if (!HF_TOKEN) return;
+
+    try {
+        const response = await fetch('https://router.huggingface.co/v1/models', {
+            headers: { Authorization: 'Bearer ' + HF_TOKEN }
+        });
+
+        if (!response.ok) {
+            console.warn('Could not inspect Hugging Face available models:', response.status);
+            return;
+        }
+
+        const payload = await response.json();
+        const models = Array.isArray(payload?.data) ? payload.data : [];
+
+        for (const candidate of MODEL_CANDIDATES) {
+            const entry = models.find(m => m?.id === candidate);
+            if (!entry) continue;
+
+            const providers = Array.isArray(entry.providers) ? entry.providers : [];
+            if (PROVIDER === 'auto' || PROVIDER === 'default') {
+                const live = providers.find(p => p?.status === 'live');
+                if (live || providers.length) {
+                    resolvedModel = candidate;
+                    resolvedProvider = 'auto';
+                    console.log('HF model selected:', resolvedModel, '| provider: auto');
+                    return;
+                }
+            } else {
+                const match = providers.find(p => p?.provider === PROVIDER && p?.status !== 'disabled');
+                if (match) {
+                    resolvedModel = candidate;
+                    resolvedProvider = PROVIDER;
+                    console.log('HF model selected:', resolvedModel, '| provider:', resolvedProvider);
+                    return;
+                }
+            }
+        }
+
+        console.warn('No configured Hugging Face model/provider was found. Requested:', MODEL, '| provider:', PROVIDER);
+    } catch (error) {
+        console.warn('Could not resolve Hugging Face model:', error.message);
+    }
+}
 
 function getClientKey(req) {
     return req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown';
@@ -138,8 +194,8 @@ app.get('/api/health', (req, res) => {
     res.json({
         ok: true,
         huggingfaceConfigured: Boolean(HF_TOKEN),
-        model: MODEL,
-        provider: PROVIDER
+        model: resolvedModel,
+        provider: resolvedProvider
     });
 });
 
@@ -183,8 +239,8 @@ app.post('/api/chat', async (req, res) => {
 
     try {
         const stream = hf.chatCompletionStream({
-            model: MODEL,
-            provider: PROVIDER,
+            model: resolvedModel,
+            provider: resolvedProvider,
             temperature: 0.1,
             max_tokens: MAX_TOKENS,
             messages: [
@@ -225,6 +281,11 @@ app.post('/api/chat', async (req, res) => {
         }
 
         const status = Number(error?.status || error?.statusCode || 500);
+        if (status === 400 && String(error?.message || '').includes('not supported by any provider')) {
+            return res.status(503).json({
+                error: 'โมเดลนี้ไม่มี Inference Provider ที่ token ของเซิร์ฟเวอร์เปิดใช้งานอยู่ กรุณาตรวจสอบ HF_MODEL/HF_PROVIDER หรือเปิด provider ใน Hugging Face'
+            });
+        }
         if (status === 401 || status === 403) {
             return res.status(503).json({ error: 'HF_TOKEN ไม่ถูกต้องหรือไม่มีสิทธิ์เรียก Inference Providers' });
         }
