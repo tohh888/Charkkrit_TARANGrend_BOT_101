@@ -13,11 +13,19 @@ const MODEL = process.env.HF_MODEL || 'Qwen/Qwen3-30B-A3B';
 const PROVIDER = process.env.HF_PROVIDER || 'auto';
 
 // รายชื่อสำรองสำหรับกรณี model ที่ตั้งไว้ไม่มี provider ให้ token นี้ใช้งาน
+// Fallback หลายชั้น: ถ้าโมเดลหนึ่งว่าง/ล่ม/ไม่มี provider ให้ลองตัวถัดไป
+// รายชื่อเน้นโมเดลที่เหมาะกับงานสนทนาและมีโอกาสมี Inference Provider ให้เลือก
 const MODEL_CANDIDATES = [
     MODEL,
     'Qwen/Qwen3-30B-A3B',
     'Qwen/Qwen3-32B',
-    'openai/gpt-oss-20b'
+    'Qwen/Qwen3-14B',
+    'Qwen/Qwen3-8B',
+    'openai/gpt-oss-20b',
+    'openai/gpt-oss-120b',
+    'meta-llama/Llama-3.3-70B-Instruct',
+    'meta-llama/Llama-3.1-8B-Instruct',
+    'mistralai/Mistral-7B-Instruct-v0.3'
 ];
 let resolvedModel = MODEL;
 let resolvedProvider = PROVIDER;
