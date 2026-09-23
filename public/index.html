@@ -384,47 +384,56 @@ function renderScheduleAnswer(answer){
   if(!answer.includes('📚 ข้อมูลกลุ่มและรายวิชาที่เรียนทั้งหมด')) return null;
 
   const lines=answer.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
-  let html='<div class="w-full max-w-2xl space-y-4">';
+  let html='<div class="w-full max-w-3xl text-[15px] leading-7 text-slate-200">';
   let currentGroup='';
-  let card=[];
+  let item=[];
+  let firstItem=true;
+
+  const escLabel=(label,value)=>{
+    return '<span class="text-slate-400">'+label+'</span> '+escHtml(value||'-');
+  };
+
   const flush=()=>{
-    if(!card.length) return;
+    if(!item.length) return;
     const data={};
-    for(const line of card){
-      const m=line.match(/^(📅 วัน|🕐 เวลา:|📘 วิชา:|🔢 รหัสวิชา:|📌 ประเภท:|🏫 ห้อง:|👥 กลุ่ม:)\\s*(.*)$/);
+    for(const line of item){
+      const m=line.match(/^(📅 วัน|🕐 เวลา:|📘 วิชา:|🔢 รหัสวิชา:|📌 ประเภท:|🏫 ห้อง:|👥 กลุ่ม:)\s*(.*)$/);
       if(m) data[m[1]]=m[2];
     }
-    html+=`<div class="rounded-2xl border border-slate-200/10 bg-slate-950/35 p-4 shadow-sm">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        <div class="rounded-xl bg-white/5 px-3 py-2"><div class="text-[11px] text-slate-400">วัน</div><div class="font-semibold">${escHtml(data['📅 วัน']||'-')}</div></div>
-        <div class="rounded-xl bg-white/5 px-3 py-2"><div class="text-[11px] text-slate-400">เวลา</div><div class="font-semibold">${escHtml(data['🕐 เวลา:']||'-')}</div></div>
-        <div class="sm:col-span-2 rounded-xl bg-white/5 px-3 py-2"><div class="text-[11px] text-slate-400">วิชา</div><div class="font-semibold leading-6">${escHtml(data['📘 วิชา:']||'-')}</div></div>
-        <div class="rounded-xl bg-white/5 px-3 py-2"><div class="text-[11px] text-slate-400">รหัสวิชา</div><div>${escHtml(data['🔢 รหัสวิชา:']||'-')}</div></div>
-        <div class="rounded-xl bg-white/5 px-3 py-2"><div class="text-[11px] text-slate-400">ประเภท</div><div>${escHtml(data['📌 ประเภท:']||'-')}</div></div>
-        <div class="rounded-xl bg-white/5 px-3 py-2"><div class="text-[11px] text-slate-400">ห้อง</div><div>${escHtml(data['🏫 ห้อง:']||'-')}</div></div>
-      </div>
-    </div>`;
-    card=[];
+
+    if(!firstItem){
+      html+='<div class="my-4 border-t border-white/10"></div>';
+    }
+    firstItem=false;
+
+    html+='<div class="space-y-0.5">';
+    html+='<div>'+escLabel('📅',data['📅 วัน'])+' <span class="mx-1 text-slate-500">•</span> '+escLabel('🕐',data['🕐 เวลา:'])+'</div>';
+    html+='<div class="pl-1"><span class="text-slate-400">📘 วิชา:</span> <span class="font-medium text-white">'+escHtml(data['📘 วิชา:']||'-')+'</span></div>';
+    html+='<div class="pl-1 text-sm">'+escLabel('🔢 รหัสวิชา:',data['🔢 รหัสวิชา:'])+' <span class="mx-1 text-slate-600">•</span> '+escLabel('📌 ประเภท:',data['📌 ประเภท:'])+'</div>';
+    html+='<div class="pl-1 text-sm">'+escLabel('🏫 ห้อง:',data['🏫 ห้อง:'])+'</div>';
+    html+='</div>';
+    item=[];
   };
+
   for(const line of lines){
-    if(line.startsWith('👥 กลุ่ม ')){
+    if(line.startsWith('📚 ')){
+      html+='<div class="mb-4 text-lg font-bold text-white">'+escHtml(line)+'</div>';
+    } else if(line.startsWith('👥 กลุ่ม ')){
       flush();
-      if(currentGroup) html+='</div></section>';
+      if(currentGroup) html+='<div class="my-5"></div>';
       currentGroup=line.replace(/^👥 กลุ่ม /,'');
-      html+=`<section class="rounded-2xl border border-blue-400/20 bg-blue-500/5 overflow-hidden">
-        <div class="px-4 py-3 bg-blue-500/10 border-b border-blue-400/10">
-          <div class="text-xs text-blue-300">กลุ่มเรียน</div>
-          <div class="text-base sm:text-lg font-bold">${escHtml(currentGroup)}</div>
-        </div>
-        <div class="p-3 space-y-3">`;
+      html+='<div class="mt-5 mb-2 text-base font-bold text-blue-200">👥 '+escHtml(currentGroup)+'</div>';
+      html+='<div class="h-px bg-gradient-to-r from-blue-400/50 via-white/10 to-transparent mb-3"></div>';
+      firstItem=true;
     } else if(line.startsWith('📅 วัน')){
-      flush(); card=[line];
-    } else if(line.startsWith('👥 กลุ่ม ')===false && !line.startsWith('📚 ') && !line.startsWith('─')){
-      if(card.length) card.push(line);
+      flush();
+      item=[line];
+    } else if(!line.startsWith('─') && item.length){
+      item.push(line);
     }
   }
+
   flush();
-  if(currentGroup) html+='</div></section>';
   html+='</div>';
   return html;
 }
