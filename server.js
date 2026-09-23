@@ -251,7 +251,7 @@ function localScheduleAnswer(message, history = []) {
         lines.push('');
         lines.push('ตรวจจากตารางทุกวันแล้ว:');
         lines.push(...dayStats.map(x => '• ' + x.label + ' ' + x.count + ' คาบ'));
-        return lines.join('\\n');
+        return lines.join('\n');
     }
 
     if (hasCountQuestion && !day && !asksLeast && !asksMost) {
@@ -262,7 +262,7 @@ function localScheduleAnswer(message, history = []) {
             'รวมทั้งหมด ' + total + ' คาบ',
             '',
             ...dayStats.map(x => '• ' + x.label + ' — ' + x.count + ' คาบ')
-        ].join('\\n');
+        ].join('\n');
     }
 
     if (asksComparison && /(คาบ|สอน|ตาราง)/.test(q)) {
@@ -271,7 +271,7 @@ function localScheduleAnswer(message, history = []) {
             '📊 เปรียบเทียบจำนวนคาบสอน',
             '',
             ...ordered.map((x, i) => (i + 1) + '. ' + x.label + ' — ' + x.count + ' คาบ')
-        ].join('\\n');
+        ].join('\n');
     }
 
     if (/(ตารางเรียนทั้งหมด|ตารางสอนทั้งหมด|ตารางทั้งหมด|ดูตาราง|ตารางอาจารย์)/.test(q)) {
