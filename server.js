@@ -164,6 +164,54 @@ function getFreeSlots(classes) {
     return slots;
 }
 
+function allScheduleItems() {
+    return DAY_KEYS.flatMap(day => getDayClasses(day).map(c => ({ day, ...c })));
+}
+
+function uniqueBy(values, keyFn = x => x) {
+    const seen = new Set();
+    return values.filter(v => {
+        const k = keyFn(v);
+        if (seen.has(k)) return false;
+        seen.add(k);
+        return true;
+    });
+}
+
+function findGroup(q) {
+    const groups = uniqueBy(allScheduleItems().map(x => x.group).filter(Boolean));
+    const nq = normalize(q);
+    return groups.sort((a, b) => b.length - a.length)
+        .find(g => nq.includes(normalize(g))) || null;
+}
+
+function groupItems(group) {
+    return allScheduleItems().filter(x => normalize(x.group) === normalize(group));
+}
+
+function subjectItems(subject) {
+    return allScheduleItems().filter(x =>
+        x.code === subject.code || normalize(x.subject) === normalize(subject.subject)
+    );
+}
+
+function minutesForClasses(classes) {
+    return classes.reduce((sum, c) => {
+        const r = parseTimeRange(c.time);
+        return sum + (r ? Math.max(0, r.end - r.start) : 0);
+    }, 0);
+}
+
+function formatDuration(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return (h ? h + ' ชั่วโมง' : '') + (h && m ? ' ' : '') + (m ? m + ' นาที' : '') || '0 นาที';
+}
+
+function formatDaySummary(stats) {
+    return stats.map(x => '• ' + x.label + ' — ' + x.count + ' คาบ / ' + formatDuration(x.minutes)).join('\n');
+}
+
 function localScheduleAnswer(message, history = []) {
     const q = normalize(message); const teacher = scheduleData.teacher_info || {}; const schedule = scheduleData.schedule || {};
     const scheduleWords = /(ตาราง|เรียน|สอน|คาบ|วิชา|ห้อง|กลุ่ม|ว่าง|เลิก|เริ่ม|กี่โมง|เมื่อไหร่|กี่คาบ|วันนี้|พรุ่งนี้|มะรืน|วันจันทร์|วันอังคาร|วันพุธ|วันพฤหัส|วันพฤหัสบดี|วันศุกร์|จันทร์|อังคาร|พุธ|พฤหัส|ศุกร์|เช้า|บ่าย|เย็น)/;
@@ -210,67 +258,86 @@ function localScheduleAnswer(message, history = []) {
             '- ชั่วโมงรวม: ' + (teacher.total_hours ?? '-') + ' ชั่วโมง'
         ].join('\n');
     }
-    // วิเคราะห์คำถามเชิงคำนวณจากตารางโดยตรง
-    // "คาบ" = จำนวนรายการสอนจริงในตาราง ไม่ใช่จำนวนชั่วโมง
-    // ถ้าจำนวนคาบเท่ากัน ให้รายงานทุกวันที่เสมอกัน ไม่เลือกวันใดวันหนึ่งเอง
+    // เครื่องวิเคราะห์ตารางแบบ deterministic: คำถามที่คำนวณได้ต้องคำนวณจากข้อมูลจริง
     const dayStats = DAY_KEYS.map(d => {
         const classes = getDayClasses(d);
-        const minutes = classes.reduce((sum, c) => {
-            const r = parseTimeRange(c.time);
-            return sum + (r ? Math.max(0, r.end - r.start) : 0);
-        }, 0);
-        return { day: d, label: 'วัน' + DAY_LABELS[d], classes, count: classes.length, minutes };
+        const minutes = minutesForClasses(classes);
+        const freeMinutes = Math.max(0, 10 * 60 - minutes);
+        return { day: d, label: 'วัน' + DAY_LABELS[d], classes, count: classes.length, minutes, freeMinutes };
     });
 
-    const hasCountQuestion = /(กี่คาบ|จำนวนคาบ|นับคาบ|คาบทั้งหมด|สอนกี่ครั้ง|กี่ครั้งที่สอน|มีกี่คาบ)/.test(q);
-    const asksLeast = /(น้อยที่สุด|น้อยสุด|น้อยกว่าเพื่อน|เบาสุด|สอนน้อย|เรียนน้อย|คาบน้อย)/.test(q);
-    const asksMost = /(มากที่สุด|มากสุด|เยอะที่สุด|เยอะสุด|เยอะกว่าเพื่อน|หนักสุด|สอนเยอะ|เรียนเยอะ|คาบเยอะ)/.test(q);
-    const asksComparison = /(เทียบ|เปรียบเทียบ|ต่างกัน|ต่างกันกี่คาบ|เรียงจาก|เรียงลำดับ|อันดับ)/.test(q);
+    const hasCountQuestion = /(กี่คาบ|จำนวนคาบ|นับคาบ|คาบทั้งหมด|สอนกี่ครั้ง|กี่ครั้งที่สอน|มีกี่คาบ|กี่รายการ)/.test(q);
+    const asksLeast = /(น้อยที่สุด|น้อยสุด|น้อยกว่า|เบาสุด|สอนน้อย|เรียนน้อย|คาบน้อย|เวลาสอนน้อย)/.test(q);
+    const asksMost = /(มากที่สุด|มากสุด|มากกว่า|เยอะที่สุด|เยอะสุด|หนักสุด|สอนเยอะ|เรียนเยอะ|คาบเยอะ|เวลาสอนมาก)/.test(q);
+    const asksComparison = /(เทียบ|เปรียบเทียบ|ต่างกัน|ห่างกัน|เรียงจาก|เรียงลำดับ|อันดับ|มากกว่ากัน|น้อยกว่ากัน)/.test(q);
+    const asksHours = /(ชั่วโมง|ชม\.|เวลาเรียนรวม|เวลาสอนรวม|ใช้เวลาสอน|สอนนาน)/.test(q);
+    const metric = asksHours ? 'minutes' : 'count';
 
-    // ต้องประมวลผล "วันไหนสอนน้อยสุด/เยอะสุด" ก่อนเงื่อนไขแสดงตารางรายวัน
     if ((asksLeast || asksMost) && /(วัน|วันไหน|แต่ละวัน|ทุกวัน|วันทำงาน)/.test(q)) {
         const target = asksLeast
-            ? Math.min(...dayStats.map(x => x.count))
-            : Math.max(...dayStats.map(x => x.count));
-        const matches = dayStats.filter(x => x.count === target);
+            ? Math.min(...dayStats.map(x => x[metric]))
+            : Math.max(...dayStats.map(x => x[metric]));
+        const matches = dayStats.filter(x => x[metric] === target);
         const label = asksLeast ? 'น้อยที่สุด' : 'มากที่สุด';
-        const lines = [
-            '📊 สรุปจำนวนคาบสอน',
-            '',
-            'คำถาม: วันไหนสอน' + label,
-            ''
-        ];
+        const lines = ['📊 สรุปจากตารางจริง', '', 'วันสอน' + label + ':'];
 
-        if (matches.length > 1) {
-            lines.push('มี ' + matches.length + ' วันที่เท่ากัน คือ');
-            lines.push(...matches.map(x => '• ' + x.label + ' — ' + x.count + ' คาบ'));
-        } else {
-            lines.push('คำตอบ: ' + matches[0].label + ' — ' + matches[0].count + ' คาบ');
-        }
+        lines.push(...matches.map(x =>
+            '• ' + x.label + ' — ' +
+            (metric === 'minutes' ? formatDuration(x.minutes) : x.count + ' คาบ') +
+            ' (' + (metric === 'minutes' ? x.count + ' คาบ' : formatDuration(x.minutes)) + ')'
+        ));
 
-        lines.push('');
-        lines.push('ตรวจจากตารางทุกวันแล้ว:');
-        lines.push(...dayStats.map(x => '• ' + x.label + ' ' + x.count + ' คาบ'));
+        lines.push('', 'ตรวจครบทุกวัน:', formatDaySummary(dayStats));
         return lines.join('\n');
     }
 
-    if (hasCountQuestion && !day && !asksLeast && !asksMost) {
-        const total = dayStats.reduce((sum, x) => sum + x.count, 0);
+    if (asksComparison && /(คาบ|สอน|ตาราง|ชั่วโมง|เวลา)/.test(q)) {
+        const ordered = [...dayStats].sort((a, b) => b[metric] - a[metric]);
         return [
-            '📊 จำนวนคาบสอน',
+            '📊 เปรียบเทียบตารางสอน',
             '',
-            'รวมทั้งหมด ' + total + ' คาบ',
-            '',
-            ...dayStats.map(x => '• ' + x.label + ' — ' + x.count + ' คาบ')
+            ...ordered.map((x, i) =>
+                (i + 1) + '. ' + x.label + ' — ' +
+                (metric === 'minutes' ? formatDuration(x.minutes) : x.count + ' คาบ') +
+                ' (' + formatDuration(x.minutes) + ')'
+            )
         ].join('\n');
     }
 
-    if (asksComparison && /(คาบ|สอน|ตาราง)/.test(q)) {
-        const ordered = [...dayStats].sort((a, b) => b.count - a.count);
+    if (hasCountQuestion && !day && !asksLeast && !asksMost) {
+        const totalCount = dayStats.reduce((sum, x) => sum + x.count, 0);
+        const totalMinutes = dayStats.reduce((sum, x) => sum + x.minutes, 0);
         return [
-            '📊 เปรียบเทียบจำนวนคาบสอน',
+            '📊 สรุปจำนวนคาบสอน',
             '',
-            ...ordered.map((x, i) => (i + 1) + '. ' + x.label + ' — ' + x.count + ' คาบ')
+            'รวมทั้งหมด ' + totalCount + ' คาบ',
+            'เวลาสอนรวม ' + formatDuration(totalMinutes),
+            '',
+            formatDaySummary(dayStats)
+        ].join('\n');
+    }
+
+    if (/(วันไหน|แต่ละวัน|ทุกวัน).*(ว่างที่สุด|ว่างสุด|มีเวลาว่างมากที่สุด|มีเวลาว่างเยอะที่สุด|ว่างมากสุด)/.test(q)) {
+        const target = Math.max(...dayStats.map(x => x.freeMinutes));
+        const matches = dayStats.filter(x => x.freeMinutes === target);
+        return [
+            '🕐 วันที่มีเวลาว่างมากที่สุด',
+            '',
+            ...matches.map(x => '• ' + x.label + ' — ว่างประมาณ ' + formatDuration(x.freeMinutes)),
+            '',
+            'สรุป: ' + formatDaySummary(dayStats)
+        ].join('\n');
+    }
+
+    if (day && /(ชั่วโมง|ชม\.|เวลาสอนรวม|สอนกี่ชั่วโมง|ใช้เวลาสอน)/.test(q)) {
+        const s = dayStats.find(x => x.day === day);
+        return [
+            '⏱️ วัน' + DAY_LABELS[day],
+            '',
+            'สอน ' + s.count + ' คาบ',
+            'เวลาสอนรวม ' + formatDuration(s.minutes),
+            '',
+            ...s.classes.map(c => '• ' + c.time + ' — ' + c.subject)
         ].join('\n');
     }
 
