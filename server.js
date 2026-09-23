@@ -434,6 +434,108 @@ function localScheduleAnswer(message, history = []) {
             }
         }
     }
+    // คำถามเชิงสรุปเกี่ยวกับวิชา/กลุ่ม/ห้อง/ประเภท โดยไม่ต้องพึ่ง AI
+    const allItems = allScheduleItems();
+    const asksSubjectsList = /(วิชาอะไรบ้าง|มีวิชาอะไร|สอนวิชาอะไร|สอนอะไรบ้าง|เรียนวิชาอะไร|รายวิชาอะไร|วิชาที่สอนทั้งหมด)/.test(q);
+    const asksGroupsList = /(มีกลุ่มอะไรบ้าง|กลุ่มอะไรบ้าง|กลุ่มทั้งหมด|ทุกกลุ่ม|รายชื่อกลุ่ม|กลุ่มที่สอนทั้งหมด)/.test(q);
+    const asksRoomsList = /(มีห้องอะไรบ้าง|ห้องไหนบ้าง|ใช้ห้องอะไร|ใช้ห้องไหน|ห้องที่สอนทั้งหมด)/.test(q);
+    const asksTypes = /(ทฤษฎี|ปฏิบัติ|ภาคทฤษฎี|ภาคปฏิบัติ)/.test(q);
+    const asksHowMany = /(มีกี่|จำนวน|กี่รายการ|กี่วิชา|กี่กลุ่ม|กี่ห้อง|กี่ครั้ง)/.test(q);
+
+    if (!subject && asksSubjectsList && !day) {
+        const subjects = uniqueBy(allItems.filter(x => x.code || x.subject), x => x.code || normalize(x.subject));
+        return [
+            '📚 รายวิชาที่มีในตาราง',
+            '',
+            ...subjects.map((x, i) => {
+                const occurrences = allItems.filter(y => (x.code && y.code === x.code) || normalize(y.subject) === normalize(x.subject));
+                const groups = uniqueBy(occurrences.map(y => y.group).filter(Boolean));
+                return (i + 1) + '. ' + (x.subject || '-') + ' (' + (x.code || '-') + ') — ' + occurrences.length + ' คาบ / ' + groups.length + ' กลุ่ม';
+            })
+        ].join('\n');
+    }
+
+    if (!findGroup(q) && asksGroupsList) {
+        const groups = uniqueBy(allItems.map(x => x.group).filter(Boolean));
+        return [
+            '👥 กลุ่มที่พบในตารางทั้งหมด',
+            '',
+            ...groups.map((g, i) => {
+                const items = groupItems(g);
+                const subjects = uniqueBy(items.map(x => x.subject).filter(Boolean));
+                return (i + 1) + '. ' + g + ' — ' + subjects.length + ' วิชา / ' + items.length + ' คาบ';
+            })
+        ].join('\n');
+    }
+
+    if (asksRoomsList) {
+        const rooms = uniqueBy(allItems.map(x => x.room).filter(Boolean));
+        return [
+            '🏫 ห้องที่ใช้สอน',
+            '',
+            ...rooms.map((room, i) => {
+                const items = allItems.filter(x => x.room === room);
+                return (i + 1) + '. ' + room + ' — ' + items.length + ' คาบ';
+            })
+        ].join('\n');
+    }
+
+    if (asksTypes && asksHowMany) {
+        const practical = allItems.filter(x => /ปฏิบัติ/.test(x.type || '')).length;
+        const theory = allItems.filter(x => /ทฤษฎี/.test(x.type || '')).length;
+        return [
+            '📊 แยกตามประเภทการสอน',
+            '',
+            '• ปฏิบัติ — ' + practical + ' คาบ',
+            '• ทฤษฎี — ' + theory + ' คาบ',
+            '• รวม — ' + allItems.length + ' คาบ'
+        ].join('\n');
+    }
+
+    if (subject) {
+        const occurrences = subjectItems(subject);
+        const uniqueDays = uniqueBy(occurrences.map(x => x.day));
+        const uniqueGroups = uniqueBy(occurrences.map(x => x.group).filter(Boolean));
+        const totalMinutes = minutesForClasses(occurrences);
+
+        if (/(กี่คาบ|กี่ครั้ง|จำนวนคาบ|สอนกี่ครั้ง)/.test(q)) {
+            return [
+                '📘 ' + subject.subject,
+                '',
+                'สอนทั้งหมด ' + occurrences.length + ' คาบ',
+                'เวลาสอนรวม ' + formatDuration(totalMinutes),
+                'สอน ' + uniqueDays.length + ' วัน',
+                '',
+                ...occurrences.map(c => '• วัน' + DAY_LABELS[c.day] + ' ' + c.time + ' — ' + (c.group || '-'))
+            ].join('\n');
+        }
+
+        if (/(กลุ่มไหน|กลุ่มอะไร|กลุ่มใด|มีกลุ่ม)/.test(q)) {
+            return [
+                '📘 ' + subject.subject,
+                '',
+                'กลุ่มที่เรียน:',
+                ...uniqueGroups.map(g => '• ' + g)
+            ].join('\n');
+        }
+
+        if (/(วันไหน|เมื่อไหร่|ตอนไหน|กี่โมง|เวลา|สอนวัน|เรียนวัน)/.test(q)) {
+            const filtered = day ? occurrences.filter(c => c.day === day) : occurrences;
+            return filtered.length
+                ? filtered.map(c => '• วัน' + DAY_LABELS[c.day] + ' | ' + formatClassComplete(c)).join('\n')
+                : '- ไม่พบวิชานี้ในวัน' + DAY_LABELS[day];
+        }
+
+        if (/(ห้อง|เรียนที่ไหน|อยู่ไหน)/.test(q)) {
+            const rooms = uniqueBy(occurrences.map(c => c.room).filter(Boolean));
+            return '🏫 ' + subject.subject + ' สอนที่: ' + rooms.join(', ');
+        }
+
+        return occurrences.length
+            ? ['📘 ' + subject.subject + ' (' + subject.code + ')', '', ...occurrences.map(c => '• วัน' + DAY_LABELS[c.day] + ' ' + formatClass(c))].join('\n')
+            : '- ไม่พบวิชานี้ในตาราง';
+    }
+
     if (subject) {
         const occurrences = Object.entries(schedule).flatMap(([d, classes]) => classes.filter(c => c.code === subject.code || normalize(c.subject) === normalize(subject.subject)).map(c => ({ day: d, ...c })));
         if (day) { const dayOccurrences = occurrences.filter(c => c.day === day); if (!dayOccurrences.length) return '- วัน' + DAY_LABELS[day] + 'ไม่มีวิชา' + subject.subject; return ['วิชา ' + subject.subject + ' (' + subject.code + ') วัน' + DAY_LABELS[day], ...dayOccurrences.map(formatClassComplete)].join('\n'); }
