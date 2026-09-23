@@ -368,7 +368,7 @@ function addMessage(role, text, html=false) {
   avatar.className='w-9 h-9 shrink-0 rounded-2xl grid place-items-center text-sm '+(role==='user'?'bg-slate-900 dark:bg-white dark:text-slate-900 text-white':'bg-gradient-to-br from-blue-500 to-indigo-600 text-white');
   avatar.textContent=role==='user'?'คุณ':'AI';
   const bubble=document.createElement('div');
-  bubble.className='rounded-2xl px-4 py-3 text-sm leading-7 '+(role==='user'?'bg-blue-600 text-white rounded-tr-md':'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-md');
+  bubble.className='rounded-2xl px-4 py-3 text-sm leading-7 whitespace-pre-wrap break-words '+(role==='user'?'bg-blue-600 text-white rounded-tr-md':'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-tl-md');
   if(html) bubble.innerHTML=text; else bubble.textContent=text;
   wrap.append(avatar,bubble); box.appendChild(wrap); box.scrollTop=box.scrollHeight;
   return bubble;
@@ -400,7 +400,9 @@ async function sendMessage() {
     while(true){
       const {done,value}=await reader.read(); if(done) break;
       answer+=decoder.decode(value,{stream:true});
-      thinking.innerHTML=typeof marked!=='undefined' ? marked.parse(answer) : answer.replace(/\n/g,'<br>');
+      // ข้อมูลตารางต้องรักษาการขึ้นบรรทัดใหม่จาก server โดยตรง
+      // ไม่ใช้ Markdown renderer เพราะอาจรวมบรรทัดจนข้อมูลติดกัน
+      thinking.textContent=answer;
       document.getElementById('chat-box').scrollTop=document.getElementById('chat-box').scrollHeight;
     }
     chatHistory.push({role:'user',content:message},{role:'assistant',content:answer});
