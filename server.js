@@ -232,6 +232,50 @@ function localScheduleAnswer(message, history = []) {
             .sort((a, b) => b.length - a.length)
             .find(g => q.includes(normalize(g)));
 
+        // วิเคราะห์ความหมายเชิงลึกของคำถามภาษาไทย:
+        // "กลุ่มไหนเรียนอะไร", "แต่ละกลุ่มเรียนวิชาอะไร", "มีกลุ่มไหนเรียนอะไรบ้าง"
+        // ต้องการทั้ง "ชื่อกลุ่ม + รายวิชาที่เรียน" ไม่ใช่แค่รายชื่อกลุ่ม
+        const asksGroupAndSubjects = (
+            /(กลุ่มไหน|กลุ่มอะไร|มีกลุ่ม|แต่ละกลุ่ม|ทุกกลุ่ม|กลุ่มบ้าง|นักเรียน.*กลุ่ม|นักศึกษา.*กลุ่ม|ผู้เรียน.*กลุ่ม)/.test(q)
+            && /(เรียนอะไร|เรียนวิชาอะไร|เรียนวิชาไหน|มีวิชาอะไร|มีวิชาไหน|สอนอะไร|สอนวิชาอะไร|วิชาอะไรบ้าง|เรียนบ้าง|มีอะไรบ้าง)/.test(q)
+        );
+
+        if (!requestedGroup && asksGroupAndSubjects) {
+            const grouped = new Map();
+
+            for (const d of DAY_KEYS) {
+                for (const item of getDayClasses(d)) {
+                    const group = String(item.group || '').trim();
+                    if (!group) continue;
+
+                    if (!grouped.has(group)) grouped.set(group, []);
+                    grouped.get(group).push({
+                        day: d,
+                        ...item
+                    });
+                }
+            }
+
+            if (!grouped.size) return 'ไม่พบข้อมูลกลุ่มและรายวิชาในตาราง';
+
+            const lines = ['ข้อมูลกลุ่มและรายวิชาที่เรียนทั้งหมด'];
+
+            for (const [group, classes] of grouped) {
+                lines.push('');
+                lines.push('กลุ่ม ' + group);
+
+                // แสดงข้อมูลทุกคาบของกลุ่มนั้น โดยไม่ให้ AI เป็นคนตัดข้อมูล
+                for (const item of classes) {
+                    lines.push(
+                        'วัน' + DAY_LABELS[item.day] +
+                        ' | ' + formatClassComplete(item)
+                    );
+                }
+            }
+
+            return lines.join('\\n');
+        }
+
         const asksGroupList = /(กลุ่มไหน|กลุ่มอะไร|มีกลุ่ม|กลุ่มบ้าง|สอนกลุ่ม|สอน.*กลุ่ม|นักเรียน.*กลุ่ม|นักศึกษา.*กลุ่ม|ผู้เรียน.*กลุ่ม)/.test(q);
 
         if (!requestedGroup && asksGroupList) {
