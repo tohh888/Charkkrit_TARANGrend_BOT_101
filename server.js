@@ -131,8 +131,22 @@ function findDay(message) {
 function getDayClasses(day) { return [...(scheduleData.schedule?.[day] || [])].sort((a, b) => String(a.time || '').localeCompare(String(b.time || ''), undefined, { numeric: true })); }
 function parseTimeRange(time) { const m = String(time || '').match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/); return m ? { start: Number(m[1]) * 60 + Number(m[2]), end: Number(m[3]) * 60 + Number(m[4]) } : null; }
 function minutesToTime(minutes) { return String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0'); }
-function formatClass(c) { return '- ' + (c.time || '-') + ' | ' + (c.subject || c.code || '-') + ' | ห้อง ' + (c.room || '-') + ' | กลุ่ม ' + (c.group || '-'); }
-function formatClasses(classes) { return classes.length ? classes.map(formatClass).join('\n') : '- ไม่มีการเรียนการสอน'; }
+function formatClass(c) {
+    return '- ' + (c.time || '-') + ' | ' + (c.subject || c.code || '-') + ' | ห้อง ' + (c.room || '-') + ' | กลุ่ม ' + (c.group || '-');
+}
+function formatClassComplete(c) {
+    return [
+        'เวลา: ' + (c.time || '-'),
+        'รหัสวิชา: ' + (c.code || '-'),
+        'วิชา: ' + (c.subject || '-'),
+        'ประเภท: ' + (c.type || '-'),
+        'ห้อง: ' + (c.room || '-'),
+        'กลุ่ม: ' + (c.group || '-')
+    ].join(' | ');
+}
+function formatClasses(classes) {
+    return classes.length ? classes.map(formatClass).join('\n') : '- ไม่มีการเรียนการสอน';
+}
 
 function findSubject(q) {
     const subjects = scheduleData.subjects || {};
@@ -182,14 +196,58 @@ function localScheduleAnswer(message, history = []) {
     );
 
     if (/(ข้อมูล|ประวัติ|โปรไฟล์|เกี่ยวกับ).{0,12}(อาจารย์|ครู|ผู้สอน)/.test(q) || /(อาจารย์|ครู|ผู้สอน).{0,12}(ชื่อ|จบ|วุฒิ|ตำแหน่ง|สังกัด|อยู่ที่ไหน)/.test(q) || /^(ขอ)?(ข้อมูล)?อาจารย์/.test(q)) {
-        return ['- ชื่อ: ' + (teacher.name || '-'), '- วุฒิการศึกษา: ' + (teacher.degree || '-'), '- ตำแหน่ง: ' + (teacher.position || '-'), '- สังกัด: ' + (teacher.college || '-')].join('\n');
+        return [
+            'ข้อมูลผู้สอน',
+            '- ชื่อ: ' + (teacher.name || '-'),
+            '- วุฒิการศึกษา: ' + (teacher.degree || '-'),
+            '- แผนก/สาขา: ' + (teacher.department || '-'),
+            '- ตำแหน่ง: ' + (teacher.position || '-'),
+            '- สังกัด: ' + (teacher.college || '-'),
+            '- ภาคเรียน: ' + (teacher.term || '-'),
+            '- ชั่วโมงทฤษฎี: ' + (teacher.total_theory_hours ?? '-') + ' ชั่วโมง',
+            '- ชั่วโมงปฏิบัติ: ' + (teacher.total_practical_hours ?? '-') + ' ชั่วโมง',
+            '- หน่วยกิต: ' + (teacher.total_credits ?? '-') ,
+            '- ชั่วโมงรวม: ' + (teacher.total_hours ?? '-') + ' ชั่วโมง'
+        ].join('\n');
     }
-    if (/(ตารางเรียนทั้งหมด|ตารางสอนทั้งหมด|ตารางทั้งหมด|ดูตาราง|ตารางอาจารย์)/.test(q)) return DAY_KEYS.map(day => '- วัน' + DAY_LABELS[day] + ': ' + formatClasses(getDayClasses(day)).replace(/^- /, '')).join('\n');
+    if (/(ตารางเรียนทั้งหมด|ตารางสอนทั้งหมด|ตารางทั้งหมด|ดูตาราง|ตารางอาจารย์)/.test(q)) {
+        return DAY_KEYS.map(d => {
+            const classes = getDayClasses(d);
+            return [
+                'วัน' + DAY_LABELS[d] + ' (' + classes.length + ' คาบ)',
+                ...(classes.length ? classes.map(formatClassComplete) : ['ไม่มีการเรียนการสอน'])
+            ].join('\n');
+        }).join('\n\n');
+    }
+
+    // ค้นหาข้อมูลตาม "กลุ่ม" เช่น ทค.2/1, ทค.3/4, สท.3/3-4
+    // และคืนข้อมูลของคาบที่ตรงทั้งหมด ไม่ตัดเวลา/วิชา/ห้อง/ประเภท/กลุ่มออก
+    if (/(กลุ่ม|ทค\.|สท\.|กลุ่มเรียน)/.test(q)) {
+        const allClasses = DAY_KEYS.flatMap(d =>
+            getDayClasses(d).map(c => ({ day: d, ...c }))
+        );
+        const requestedGroup = allClasses
+            .map(c => c.group)
+            .filter(Boolean)
+            .sort((a, b) => b.length - a.length)
+            .find(g => q.includes(normalize(g)));
+
+        const matches = requestedGroup
+            ? allClasses.filter(c => normalize(c.group) === normalize(requestedGroup))
+            : allClasses.filter(c => q.includes(normalize(c.group)));
+
+        if (matches.length) {
+            return [
+                'ข้อมูลกลุ่ม' + (requestedGroup ? ' ' + requestedGroup : ''),
+                ...matches.map(c => 'วัน' + DAY_LABELS[c.day] + ' | ' + formatClassComplete(c))
+            ].join('\n');
+        }
+    }
 
     if (subject) {
         const occurrences = Object.entries(schedule).flatMap(([d, classes]) => classes.filter(c => c.code === subject.code || normalize(c.subject) === normalize(subject.subject)).map(c => ({ day: d, ...c })));
-        if (day) { const dayOccurrences = occurrences.filter(c => c.day === day); if (!dayOccurrences.length) return '- วัน' + DAY_LABELS[day] + 'ไม่มีวิชา' + subject.subject; return ['- ' + subject.subject + ' (' + subject.code + ') วัน' + DAY_LABELS[day], ...dayOccurrences.map(formatClass)].join('\n'); }
-        if (/(วันไหน|เมื่อไหร่|ตอนไหน|กี่โมง|เวลา|สอนวัน|เรียนวัน)/.test(q)) return occurrences.map(c => '- วัน' + DAY_LABELS[c.day] + ' ' + formatClass(c)).join('\n') || '- ไม่พบวิชานี้ในตาราง';
+        if (day) { const dayOccurrences = occurrences.filter(c => c.day === day); if (!dayOccurrences.length) return '- วัน' + DAY_LABELS[day] + 'ไม่มีวิชา' + subject.subject; return ['วิชา ' + subject.subject + ' (' + subject.code + ') วัน' + DAY_LABELS[day], ...dayOccurrences.map(formatClassComplete)].join('\n'); }
+        if (/(วันไหน|เมื่อไหร่|ตอนไหน|กี่โมง|เวลา|สอนวัน|เรียนวัน)/.test(q)) return occurrences.map(c => 'วัน' + DAY_LABELS[c.day] + ' | ' + formatClassComplete(c)).join('\n') || '- ไม่พบวิชานี้ในตาราง';
         if (/(ห้อง|เรียนที่ไหน|อยู่ไหน)/.test(q)) return occurrences.map(c => '- วัน' + DAY_LABELS[c.day] + ' ' + (c.time || '-') + ' ห้อง ' + (c.room || '-')).join('\n') || '- ไม่พบวิชานี้ในตาราง';
         return occurrences.map(c => '- วัน' + DAY_LABELS[c.day] + ' ' + formatClass(c)).join('\n') || '- ไม่พบวิชานี้ในตาราง';
     }
@@ -204,7 +262,7 @@ function localScheduleAnswer(message, history = []) {
         if (/(คาบสุดท้าย|สุดท้าย|เลิกกี่โมง|เลิกเรียน)/.test(q)) return '- คาบสุดท้ายวัน' + DAY_LABELS[day] + 'คือ ' + classes[classes.length - 1].subject + ' (' + classes[classes.length - 1].time + ')';
         if (/(กี่คาบ|กี่วิชา|กี่ครั้ง)/.test(q)) return '- วัน' + DAY_LABELS[day] + 'มี ' + classes.length + ' คาบ';
         if (/(ว่าง|มีช่วงว่าง|พัก|ไม่มีเรียน)/.test(q)) return ['- วัน' + DAY_LABELS[day] + 'ช่วงที่ว่าง', ...getFreeSlots(getDayClasses(day)).map(s => '- ' + s)].join('\n');
-        return ['- ตารางวัน' + DAY_LABELS[day], ...classes.map(formatClass)].join('\n');
+        return ['ตารางวัน' + DAY_LABELS[day], ...classes.map(formatClassComplete)].join('\n');
     }
 
     if (/(ตอนนี้|ขณะนี้|คาบต่อไป|ต่อไปเรียนอะไร|กำลังสอน)/.test(q)) {
