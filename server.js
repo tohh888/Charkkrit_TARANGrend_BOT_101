@@ -258,22 +258,29 @@ function localScheduleAnswer(message, history = []) {
 
             if (!grouped.size) return 'ไม่พบข้อมูลกลุ่มและรายวิชาในตาราง';
 
-            const lines = ['ข้อมูลกลุ่มและรายวิชาที่เรียนทั้งหมด'];
+            const lines = ['📚 ข้อมูลกลุ่มและรายวิชาที่เรียนทั้งหมด'];
 
             for (const [group, classes] of grouped) {
                 lines.push('');
-                lines.push('กลุ่ม ' + group);
+                lines.push('👥 กลุ่ม ' + group);
+                lines.push('────────────────────');
 
-                // แสดงข้อมูลทุกคาบของกลุ่มนั้น โดยไม่ให้ AI เป็นคนตัดข้อมูล
+                // แยกแต่ละคาบเป็นบล็อก เพื่อให้อ่านง่ายและไม่ติดกันเป็นย่อหน้ายาว
                 for (const item of classes) {
                     lines.push(
-                        'วัน' + DAY_LABELS[item.day] +
-                        ' | ' + formatClassComplete(item)
+                        '📅 วัน' + DAY_LABELS[item.day],
+                        '🕐 เวลา: ' + (item.time || '-'),
+                        '📘 วิชา: ' + (item.subject || '-'),
+                        '🔢 รหัสวิชา: ' + (item.code || '-'),
+                        '📌 ประเภท: ' + (item.type || '-'),
+                        '🏫 ห้อง: ' + (item.room || '-'),
+                        '👥 กลุ่ม: ' + (item.group || '-'),
+                        ''
                     );
                 }
             }
 
-            return lines.join('\n');
+            return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
         }
 
         const asksGroupList = /(กลุ่มไหน|กลุ่มอะไร|มีกลุ่ม|กลุ่มบ้าง|สอนกลุ่ม|สอน.*กลุ่ม|นักเรียน.*กลุ่ม|นักศึกษา.*กลุ่ม|ผู้เรียน.*กลุ่ม)/.test(q);
