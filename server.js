@@ -220,30 +220,38 @@ function localScheduleAnswer(message, history = []) {
         }).join('\n\n');
     }
 
-    // ค้นหาข้อมูลตาม "กลุ่ม" เช่น ทค.2/1, ทค.3/4, สท.3/3-4
-    // และคืนข้อมูลของคาบที่ตรงทั้งหมด ไม่ตัดเวลา/วิชา/ห้อง/ประเภท/กลุ่มออก
-    if (/(กลุ่ม|ทค\.|สท\.|กลุ่มเรียน)/.test(q)) {
+    // คำถามเรื่องกลุ่มต้องตอบจากตารางจริงโดยตรง และคืนกลุ่มไม่ซ้ำทั้งหมด
+    if (/(กลุ่ม|นักเรียน|นักศึกษา|ผู้เรียน|ห้องเรียน)/.test(q)) {
         const allClasses = DAY_KEYS.flatMap(d =>
             getDayClasses(d).map(c => ({ day: d, ...c }))
         );
+
         const requestedGroup = allClasses
             .map(c => c.group)
             .filter(Boolean)
             .sort((a, b) => b.length - a.length)
             .find(g => q.includes(normalize(g)));
 
-        const matches = requestedGroup
-            ? allClasses.filter(c => normalize(c.group) === normalize(requestedGroup))
-            : allClasses.filter(c => q.includes(normalize(c.group)));
+        const asksGroupList = /(กลุ่มไหน|กลุ่มอะไร|มีกลุ่ม|กลุ่มบ้าง|สอนกลุ่ม|สอน.*กลุ่ม|นักเรียน.*กลุ่ม|นักศึกษา.*กลุ่ม|ผู้เรียน.*กลุ่ม)/.test(q);
 
-        if (matches.length) {
+        if (!requestedGroup && asksGroupList) {
+            const groups = [...new Set(allClasses.map(c => c.group).filter(Boolean))];
             return [
-                'ข้อมูลกลุ่ม' + (requestedGroup ? ' ' + requestedGroup : ''),
-                ...matches.map(c => 'วัน' + DAY_LABELS[c.day] + ' | ' + formatClassComplete(c))
+                'กลุ่มนักเรียน/นักศึกษาที่สอนทั้งหมด',
+                ...groups.map((group, index) => (index + 1) + '. ' + group)
             ].join('\n');
         }
-    }
 
+        if (requestedGroup) {
+            const matches = allClasses.filter(c => normalize(c.group) === normalize(requestedGroup));
+            if (matches.length) {
+                return [
+                    'ข้อมูลกลุ่ม ' + requestedGroup,
+                    ...matches.map(c => 'วัน' + DAY_LABELS[c.day] + ' | ' + formatClassComplete(c))
+                ].join('\n');
+            }
+        }
+    }
     if (subject) {
         const occurrences = Object.entries(schedule).flatMap(([d, classes]) => classes.filter(c => c.code === subject.code || normalize(c.subject) === normalize(subject.subject)).map(c => ({ day: d, ...c })));
         if (day) { const dayOccurrences = occurrences.filter(c => c.day === day); if (!dayOccurrences.length) return '- วัน' + DAY_LABELS[day] + 'ไม่มีวิชา' + subject.subject; return ['วิชา ' + subject.subject + ' (' + subject.code + ') วัน' + DAY_LABELS[day], ...dayOccurrences.map(formatClassComplete)].join('\n'); }
