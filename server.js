@@ -273,7 +273,7 @@ function localScheduleAnswer(message, history = []) {
                 }
             }
 
-            return lines.join('\\n');
+            return lines.join('\n');
         }
 
         const asksGroupList = /(กลุ่มไหน|กลุ่มอะไร|มีกลุ่ม|กลุ่มบ้าง|สอนกลุ่ม|สอน.*กลุ่ม|นักเรียน.*กลุ่ม|นักศึกษา.*กลุ่ม|ผู้เรียน.*กลุ่ม)/.test(q);
