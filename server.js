@@ -425,11 +425,38 @@ function localScheduleAnswer(message, history = []) {
         }
 
         if (requestedGroup) {
-            const matches = allClasses.filter(c => normalize(c.group) === normalize(requestedGroup));
+            const matches = groupItems(requestedGroup);
             if (matches.length) {
+                const uniqueSubjects = uniqueBy(matches.map(c => ({
+                    code: c.code,
+                    subject: c.subject
+                })), x => x.code || normalize(x.subject));
+
+                if (/(กี่วิชา|จำนวนวิชา|เรียนกี่วิชา|มีกี่วิชา)/.test(q)) {
+                    return [
+                        '👥 ' + requestedGroup,
+                        '',
+                        'เรียนทั้งหมด ' + uniqueSubjects.length + ' วิชา',
+                        ...uniqueSubjects.map((x, i) => (i + 1) + '. ' + x.subject + ' (' + (x.code || '-') + ')')
+                    ].join('\n');
+                }
+
+                if (/(เรียนอะไร|เรียนวิชาอะไร|เรียนวิชาไหน|มีวิชาอะไร|วิชาอะไรบ้าง|สอนอะไร|เรียนบ้าง)/.test(q)) {
+                    return [
+                        '👥 ' + requestedGroup,
+                        '',
+                        'รายวิชาที่เรียน:',
+                        ...uniqueSubjects.map(x => '• ' + x.subject + ' (' + (x.code || '-') + ')'),
+                        '',
+                        'รายละเอียดคาบ:',
+                        ...matches.map(c => '• วัน' + DAY_LABELS[c.day] + ' ' + c.time + ' — ' + c.subject)
+                    ].join('\n');
+                }
+
                 return [
-                    'ข้อมูลกลุ่ม ' + requestedGroup,
-                    ...matches.map(c => 'วัน' + DAY_LABELS[c.day] + ' | ' + formatClassComplete(c))
+                    '👥 ข้อมูลกลุ่ม ' + requestedGroup,
+                    '',
+                    ...matches.map(c => '• วัน' + DAY_LABELS[c.day] + ' | ' + formatClassComplete(c))
                 ].join('\n');
             }
         }
