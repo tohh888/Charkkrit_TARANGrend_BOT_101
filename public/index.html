@@ -383,7 +383,7 @@ function escHtml(value){
 function renderScheduleAnswer(answer){
   if(!answer.includes('📚 ข้อมูลกลุ่มและรายวิชาที่เรียนทั้งหมด')) return null;
 
-  const lines=answer.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean);
+  const lines=answer.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   let html='<div class="w-full max-w-2xl space-y-4">';
   let currentGroup='';
   let card=[];
@@ -409,6 +409,7 @@ function renderScheduleAnswer(answer){
   for(const line of lines){
     if(line.startsWith('👥 กลุ่ม ')){
       flush();
+      if(currentGroup) html+='</div></section>';
       currentGroup=line.replace(/^👥 กลุ่ม /,'');
       html+=`<section class="rounded-2xl border border-blue-400/20 bg-blue-500/5 overflow-hidden">
         <div class="px-4 py-3 bg-blue-500/10 border-b border-blue-400/10">
@@ -423,7 +424,8 @@ function renderScheduleAnswer(answer){
     }
   }
   flush();
-  html+='</div></section></div>';
+  if(currentGroup) html+='</div></section>';
+  html+='</div>';
   return html;
 }
 
