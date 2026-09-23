@@ -210,6 +210,70 @@ function localScheduleAnswer(message, history = []) {
             '- ชั่วโมงรวม: ' + (teacher.total_hours ?? '-') + ' ชั่วโมง'
         ].join('\n');
     }
+    // วิเคราะห์คำถามเชิงคำนวณจากตารางโดยตรง
+    // "คาบ" = จำนวนรายการสอนจริงในตาราง ไม่ใช่จำนวนชั่วโมง
+    // ถ้าจำนวนคาบเท่ากัน ให้รายงานทุกวันที่เสมอกัน ไม่เลือกวันใดวันหนึ่งเอง
+    const dayStats = DAY_KEYS.map(d => {
+        const classes = getDayClasses(d);
+        const minutes = classes.reduce((sum, c) => {
+            const r = parseTimeRange(c.time);
+            return sum + (r ? Math.max(0, r.end - r.start) : 0);
+        }, 0);
+        return { day: d, label: 'วัน' + DAY_LABELS[d], classes, count: classes.length, minutes };
+    });
+
+    const hasCountQuestion = /(กี่คาบ|จำนวนคาบ|นับคาบ|คาบทั้งหมด|สอนกี่ครั้ง|กี่ครั้งที่สอน|มีกี่คาบ)/.test(q);
+    const asksLeast = /(น้อยที่สุด|น้อยสุด|น้อยกว่าเพื่อน|เบาสุด|สอนน้อย|เรียนน้อย|คาบน้อย)/.test(q);
+    const asksMost = /(มากที่สุด|มากสุด|เยอะที่สุด|เยอะสุด|เยอะกว่าเพื่อน|หนักสุด|สอนเยอะ|เรียนเยอะ|คาบเยอะ)/.test(q);
+    const asksComparison = /(เทียบ|เปรียบเทียบ|ต่างกัน|ต่างกันกี่คาบ|เรียงจาก|เรียงลำดับ|อันดับ)/.test(q);
+
+    // ต้องประมวลผล "วันไหนสอนน้อยสุด/เยอะสุด" ก่อนเงื่อนไขแสดงตารางรายวัน
+    if ((asksLeast || asksMost) && /(วัน|วันไหน|แต่ละวัน|ทุกวัน|วันทำงาน)/.test(q)) {
+        const target = asksLeast
+            ? Math.min(...dayStats.map(x => x.count))
+            : Math.max(...dayStats.map(x => x.count));
+        const matches = dayStats.filter(x => x.count === target);
+        const label = asksLeast ? 'น้อยที่สุด' : 'มากที่สุด';
+        const lines = [
+            '📊 สรุปจำนวนคาบสอน',
+            '',
+            'คำถาม: วันไหนสอน' + label,
+            ''
+        ];
+
+        if (matches.length > 1) {
+            lines.push('มี ' + matches.length + ' วันที่เท่ากัน คือ');
+            lines.push(...matches.map(x => '• ' + x.label + ' — ' + x.count + ' คาบ'));
+        } else {
+            lines.push('คำตอบ: ' + matches[0].label + ' — ' + matches[0].count + ' คาบ');
+        }
+
+        lines.push('');
+        lines.push('ตรวจจากตารางทุกวันแล้ว:');
+        lines.push(...dayStats.map(x => '• ' + x.label + ' ' + x.count + ' คาบ'));
+        return lines.join('\\n');
+    }
+
+    if (hasCountQuestion && !day && !asksLeast && !asksMost) {
+        const total = dayStats.reduce((sum, x) => sum + x.count, 0);
+        return [
+            '📊 จำนวนคาบสอน',
+            '',
+            'รวมทั้งหมด ' + total + ' คาบ',
+            '',
+            ...dayStats.map(x => '• ' + x.label + ' — ' + x.count + ' คาบ')
+        ].join('\\n');
+    }
+
+    if (asksComparison && /(คาบ|สอน|ตาราง)/.test(q)) {
+        const ordered = [...dayStats].sort((a, b) => b.count - a.count);
+        return [
+            '📊 เปรียบเทียบจำนวนคาบสอน',
+            '',
+            ...ordered.map((x, i) => (i + 1) + '. ' + x.label + ' — ' + x.count + ' คาบ')
+        ].join('\\n');
+    }
+
     if (/(ตารางเรียนทั้งหมด|ตารางสอนทั้งหมด|ตารางทั้งหมด|ดูตาราง|ตารางอาจารย์)/.test(q)) {
         return DAY_KEYS.map(d => {
             const classes = getDayClasses(d);
